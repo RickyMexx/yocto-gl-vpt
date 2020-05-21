@@ -487,8 +487,8 @@ namespace yocto::image {
 
 // Loads/saves a 1 channel volume.
 void load_volume(const std::string& filename, volume<float>& vol);
-void save_volume(const std::string& filename, const volume<float>& vol);
-
+  //void save_volume(const std::string& filename, const volume<float>& vol, std::string& error);
+bool save_volume(const std::string& filename, const volume<float>& vol, std::string& error);
 }  // namespace yocto::image
 
 // -----------------------------------------------------------------------------

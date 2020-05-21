@@ -2255,8 +2255,7 @@ bool load_volume(
 }
 
 // Saves volume data in binary format.
-bool save_volume(
-    const std::string& filename, const volume<float>& vol, std::string& error) {
+bool save_volume(const std::string& filename, const volume<float>& vol, std::string& error) {
   return impl::save_volume(filename, vol, error);
 }
 

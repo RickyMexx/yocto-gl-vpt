@@ -31,6 +31,9 @@
 *.out
 *.app
 
+### Emacs ###
+*~
+
 # output folders
 /bin/*
 /build/*
