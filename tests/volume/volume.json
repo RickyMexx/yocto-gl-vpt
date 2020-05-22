@@ -1,0 +1,261 @@
+{
+  "asset": {
+    "copyright": "Model by Fabio Pellacini from github.com/~xelatihy/yocto-gl"
+  },
+  "cameras": {
+    "default": {
+      "lens": 0.05,
+      "aperture": 0.0,
+      "aspect": 2.4,
+      "lookat": [
+        -0.75,
+        0.4,
+        0.9,
+        -0.075,
+        0.05,
+        -0.05,
+        0,
+        1,
+        0
+      ]
+    }
+  },
+  "environments": {
+    "sky": {
+      "emission": [
+        0.5,
+        0.5,
+        0.5
+      ],
+      "emission_tex": "sky"
+    }
+  },
+  "objects": {
+    "floor": {
+      "shape": "floor",
+      "material": "floor"
+    },
+    "glass": {
+      "frame": [
+        1,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        1,
+        -0.4,
+        0,
+        0
+      ],
+      "shape": "sphere",
+      "material": "glass"
+    },
+    "jade": {
+      "frame": [
+        1,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0
+      ],
+      "shape": "sphere",
+      "material": "jade"
+    },
+    "smoke": {
+      "frame": [
+        1,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        1,
+        0.4,
+        0,
+        0
+      ],
+      "shape": "sphere",
+      "material": "smoke"
+    },
+    "cloud": {
+      "frame": [
+        1,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        1,
+        -0.2,
+        0,
+        0
+      ],
+      "volume": "test",
+      "shape": "sphere",
+      "material": "cloud"
+    },
+    "skin": {
+      "frame": [
+        1,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        1,
+        0.2,
+        0,
+        0
+      ],
+      "shape": "sphere",
+      "material": "skin"
+    },
+    "arealight1": {
+      "lookat": [
+        -0.4,
+        0.8,
+        0.8,
+        0,
+        0.1,
+        0,
+        0,
+        1,
+        0
+      ],
+      "shape": "arealight1",
+      "material": "arealight1"
+    },
+    "arealight2": {
+      "lookat": [
+        0.4,
+        0.8,
+        0.8,
+        0,
+        0.1,
+        0,
+        0,
+        1,
+        0
+      ],
+      "shape": "arealight2",
+      "material": "arealight2"
+    }
+  },
+  "materials": {
+    "floor": {
+      "color": [
+        0.7,
+        0.7,
+        0.7
+      ],
+      "color_tex": "floor",
+      "specular": 0
+    },
+    "glass": {
+      "specular": 1,
+      "roughness": 0,
+      "transmission": 1,
+      "color": [
+        1,
+        0.5,
+        0.5
+      ],
+      "trdepth": 0.02,
+      "thin": false
+    },
+    "jade": {
+      "specular": 1,
+      "roughness": 0,
+      "transmission": 1,
+      "color": [
+        0.5,
+        0.5,
+        0.5
+      ],
+      "scattering": [
+        0.3,
+        0.6,
+        0.3
+      ],
+      "thin": false
+    },
+    "smoke": {
+      "transmission": 1,
+      "color": [
+        0.5,
+        0.5,
+        0.5
+      ],
+      "scattering": [
+        0.2,
+        0.2,
+        0.2
+      ],
+      "phaseg": 0,
+      "ior": 1,
+      "thin": false
+    },
+    "cloud": {
+      "color": [
+        0.65,
+        0.65,
+        0.65
+      ],
+      "transmission": 1,
+      "scattering": [
+        0.9,
+        0.9,
+        0.9
+      ],
+      "ior": 1,
+      "thin": false
+    },
+    "skin": {
+      "transmission": 1,
+      "roughness": 0.5,
+      "color": [
+        0.76,
+        0.48,
+        0.23
+      ],
+      "scattering": [
+        0.436, 
+        0.227, 
+        0.131
+      ],
+      "scanisotropy": -0.8,
+      "trdepth": 0.001,
+      "thin": false
+    },
+    "arealight1": {
+      "emission": [
+        20,
+        20,
+        20
+      ]
+    },
+    "arealight2": {
+      "emission": [
+        20,
+        20,
+        20
+      ]
+    }
+  }
+}
