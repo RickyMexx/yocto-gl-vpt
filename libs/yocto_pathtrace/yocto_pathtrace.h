@@ -343,6 +343,7 @@ struct object {
   frame3f        frame    = identity3x4f;
   ptr::shape*    shape    = nullptr;
   ptr::material* material = nullptr;
+  img::volume<float>* volume = nullptr;
 };
 
 // Environment map.

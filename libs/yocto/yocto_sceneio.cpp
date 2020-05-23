@@ -183,6 +183,7 @@ std::vector<std::string> scene_stats(const scn::model* scene, bool verbose) {
   stats.push_back("cameras:      " + format(scene->cameras.size()));
   stats.push_back("shapes:       " + format(scene->shapes.size()));
   stats.push_back("subdivs:      " + format(scene->subdivs.size()));
+  stats.push_back("volumes:      " + format(scene->volumes.size())); // vpt
   stats.push_back("environments: " + format(scene->environments.size()));
   stats.push_back("textures:     " + format(scene->textures.size()));
   stats.push_back(
@@ -254,6 +255,7 @@ std::vector<std::string> scene_validation(
   check_names(scene->cameras, "camera");
   check_names(scene->shapes, "shape");
   check_names(scene->subdivs, "subdiv");
+  check_names(scene->volumes, "volume"); // vpt
   check_names(scene->shapes, "instance");
   check_names(scene->shapes, "object");
   check_names(scene->textures, "texture");
@@ -274,6 +276,7 @@ model::~model() {
   for (auto camera : cameras) delete camera;
   for (auto shape : shapes) delete shape;
   for (auto subdiv : subdivs) delete subdiv;
+  for (auto volume : volumes) delete volume; // vpt
   for (auto material : materials) delete material;
   for (auto instance : instances) delete instance;
   for (auto object : objects) delete object;
@@ -302,6 +305,9 @@ scn::shape* add_shape(scn::model* scene, const std::string& name) {
 }
 scn::subdiv* add_subdiv(scn::model* scene, const std::string& name) {
   return add_element(scene->subdivs, name, "subdiv");
+}
+img::volume<float>* add_volume(scn::model* scene, const std::string& name) { // vpt
+  return add_element(scene->volumes, name, "volume");
 }
 scn::texture* add_texture(scn::model* scene, const std::string& name) {
   return add_element(scene->textures, name, "texture");
@@ -443,6 +449,10 @@ void trim_memory(scn::model* scene) {
     subdiv->positions.shrink_to_fit();
     subdiv->normals.shrink_to_fit();
     subdiv->texcoords.shrink_to_fit();
+  }
+  for (auto volume : scene->volumes) { // vpt
+    //volume->extent.shrink_to_fit();
+    volume->voxels.shrink_to_fit();
   }
   for (auto texture : scene->textures) {
     texture->colorf.shrink_to_fit();
@@ -709,6 +719,8 @@ void tesselate_subdivs(scn::model* scene, progress_callback progress_cb) {
 }
 
 }  // namespace yocto::sceneio
+
+// Maybe todo something for vpt ?
 
 // -----------------------------------------------------------------------------
 // GENERIC SCENE LOADING
@@ -1195,6 +1207,26 @@ static bool load_json_scene(const std::string& filename, scn::model* scene,
     return true;
   };
 
+  // parse json reference // vpt
+  auto volume_map = std::unordered_map<std::string, img::volume<float>*>{{"", nullptr}};
+  auto get_volume = [scene, &volume_map, &get_value](const json& ejs,
+                        const std::string& name, img::volume<float>*& value,
+                        const std::string& dirname = "volumes/") -> bool {
+    if (!ejs.contains(name)) return true;
+    auto path = ""s;
+    if (!get_value(ejs, name, path)) return false;
+    if (path == "") return true;
+    auto it = volume_map.find(path);
+    if (it != volume_map.end()) {
+      value = it->second;
+      return true;
+    }
+    auto volume      = add_volume(scene, path);
+    volume_map[path] = volume;
+    value            = volume;
+    return true;
+  };
+
   // load json instance
   auto instance_map = std::unordered_map<std::string, scn::instance*>{
       {"", nullptr}};
@@ -1326,6 +1358,7 @@ static bool load_json_scene(const std::string& filename, scn::model* scene,
         return false;
       if (!get_shape(ejs, "shape", object->shape)) return false;
       if (!get_subdiv(ejs, "subdiv", object->subdiv)) return false;
+      if (!get_volume(ejs, "volume", object->volume)) return false; // vpt
       if (!get_instance(ejs, "instance", object->instance)) return false;
     }
   }
@@ -1333,6 +1366,7 @@ static bool load_json_scene(const std::string& filename, scn::model* scene,
   // handle progress
   progress.y += scene->shapes.size();
   progress.y += scene->subdivs.size();
+  progress.y += scene->volumes.size(); // vpt
   progress.y += scene->textures.size();
   progress.y += scene->instances.size();
 
@@ -1367,6 +1401,14 @@ static bool load_json_scene(const std::string& filename, scn::model* scene,
     if (!yshp::load_fvshape(path, subdiv->quadspos, subdiv->quadsnorm,
             subdiv->quadstexcoord, subdiv->positions, subdiv->normals,
             subdiv->texcoords, error))
+      return dependent_error();
+  }
+  // load volumes // vpt
+  volume_map.erase("");
+  for (auto [name, volume] : volume_map) {
+    if (progress_cb) progress_cb("load volume", progress.x++, progress.y);
+    auto path = get_filename(name, "volumes", {".vol"});
+    if (!img::load_volume(path, *volume, error))
       return dependent_error();
   }
   // load textures
@@ -1433,7 +1475,7 @@ static bool save_json_scene(const std::string& filename,
 
   // handle progress
   auto progress = vec2i{
-      0, 2 + (int)scene->shapes.size() + (int)scene->subdivs.size() +
+      0, 2 + (int)scene->shapes.size() + (int)scene->subdivs.size() + (int)scene->volumes.size() + // vpt
              (int)scene->textures.size() + (int)scene->instances.size()};
   if (progress_cb) progress_cb("save scene", progress.x++, progress.y);
 
@@ -1511,12 +1553,14 @@ static bool save_json_scene(const std::string& filename,
 
   auto def_object = object{};
   auto def_subdiv = subdiv{};
+  auto def_volume = img::volume<float>{}; // vpt
   if (!scene->objects.empty()) js["objects"] = json::object();
   for (auto object : scene->objects) {
     auto& ejs = js["objects"][object->name];
     add_opt(ejs, "frame", object->frame, def_object.frame);
     add_ref(ejs, "shape", object->shape);
     add_ref(ejs, "subdiv", object->subdiv);
+    add_ref(ejs, "volume", object->volume); // vpt
     add_ref(ejs, "material", object->material);
     add_ref(ejs, "instance", object->instance);
   }
@@ -1551,6 +1595,14 @@ static bool save_json_scene(const std::string& filename,
     if (!yshp::save_fvshape(path, subdiv->quadspos, subdiv->quadsnorm,
             subdiv->quadstexcoord, subdiv->positions, subdiv->normals,
             subdiv->texcoords, error))
+      return dependent_error();
+  }
+
+  // save volumes // vpt
+  for (auto volume : scene->volumes) {
+    if (progress_cb) progress_cb("save volume", progress.x++, progress.y);
+    auto path = get_filename(volume->name, "volumes", ".vol");
+    if (!img::save_volume(path, *volume, error))
       return dependent_error();
   }
 

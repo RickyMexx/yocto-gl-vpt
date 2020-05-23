@@ -451,8 +451,9 @@ struct volume {
   const T* begin() const;
   const T* end() const;
 
- private:
+ //private:
   // data
+  std::string        name   = "";
   vec3i              extent = {0, 0, 0};
   std::vector<float> voxels = {};
 };
@@ -486,7 +487,7 @@ float eval_volume(const image<float>& img, const vec3f& uvw,
 namespace yocto::image {
 
 // Loads/saves a 1 channel volume.
-void load_volume(const std::string& filename, volume<float>& vol);
+bool load_volume(const std::string& filename, volume<float>& vol, std::string& error);
   //void save_volume(const std::string& filename, const volume<float>& vol, std::string& error);
 bool save_volume(const std::string& filename, const volume<float>& vol, std::string& error);
 }  // namespace yocto::image

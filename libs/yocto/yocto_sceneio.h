@@ -224,6 +224,7 @@ struct object {
   scn::material* material = nullptr;
   scn::instance* instance = nullptr;
   scn::subdiv*   subdiv   = nullptr;
+  img::volume<float>* volume = nullptr; // vpt
 };
 
 // Environment map.
@@ -248,6 +249,7 @@ struct model {
   std::vector<scn::environment*> environments = {};
   std::vector<scn::shape*>       shapes       = {};
   std::vector<scn::subdiv*>      subdivs      = {};
+  std::vector<img::volume<float>*> volumes    = {}; // vpt
   std::vector<scn::texture*>     textures     = {};
   std::vector<scn::material*>    materials    = {};
   std::vector<scn::instance*>    instances    = {};
@@ -269,6 +271,7 @@ scn::instance* add_instance(scn::model* scene, const std::string& name = "");
 scn::material* add_material(scn::model* scene, const std::string& name = "");
 scn::shape*    add_shape(scn::model* scene, const std::string& name = "");
 scn::subdiv*   add_subdiv(scn::model* scene, const std::string& name = "");
+img::volume<float>* add_volume(scn::model* scene, const std::string& name = ""); // vpt
 scn::texture*  add_texture(scn::model* scene, const std::string& name = "");
 scn::object*   add_complete_object(
       scn::model* scene, const std::string& name = "");

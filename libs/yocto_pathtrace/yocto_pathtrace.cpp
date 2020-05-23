@@ -428,6 +428,11 @@ static brdf eval_brdf(const ptr::object* object, int element, const vec2f& uv,
 // check if a brdf is a delta
 static bool is_delta(const ptr::brdf& brdf) { return !brdf.roughness; }
 
+// check if we have a vpt volume // vpt
+static bool has_vptvolume(const ptr::object* object) {
+  return object->volume != nullptr;
+}
+
 // vsdf
 struct vsdf {
   vec3f density    = {0, 0, 0};
@@ -440,6 +445,8 @@ static vsdf eval_vsdf(const ptr::object* object, int element, const vec2f& uv) {
   auto material = object->material;
   // initialize factors
   auto texcoord = eval_texcoord(object, element, uv);
+  auto position = eval_position(object, element, uv);
+
   auto base     = material->color *
               eval_texture(material->color_tex, texcoord, false);
   auto transmission = material->transmission *
@@ -450,13 +457,21 @@ static vsdf eval_vsdf(const ptr::object* object, int element, const vec2f& uv) {
   auto scanisotropy = material->scanisotropy;
   auto trdepth      = material->trdepth;
 
-  // factors
-  auto vsdf    = ptr::vsdf{};
-  vsdf.density = (transmission && !thin)
-                     ? -log(clamp(base, 0.0001f, 1.0f)) / trdepth
-                     : zero3f;
+  auto vsdf       = ptr::vsdf{};
   vsdf.scatter    = scattering;
   vsdf.anisotropy = scanisotropy;
+
+  // If we are dealing with a real volume we look into its voxels // vpt
+  if(has_vptvolume(object)) {
+    //printf("size is %d, %d, %d\n", object->volume->extent.x, object->volume->extent.y, object->volume->extent.z); // test print
+    //auto voxs = object->volume->voxels;
+    
+    // TO-DO
+  } else {
+    vsdf.density = (transmission && !thin)
+                    ? -log(clamp(base, 0.0001f, 1.0f)) / trdepth
+                    : zero3f;
+  }
 
   return vsdf;
 }
@@ -1233,7 +1248,7 @@ static vec4f trace_path(const ptr::scene* scene, const ray3f& ray_,
       }
 
       // update volume stack
-      if (has_volume(object) &&
+      if ((has_volume(object) || has_vptvolume(object)) &&
           dot(normal, outgoing) * dot(normal, incoming) < 0) {
         if (volume_stack.empty()) {
           auto volpoint = eval_vsdf(object, element, uv);

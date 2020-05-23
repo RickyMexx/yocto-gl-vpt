@@ -104,7 +104,7 @@
         0,
         0
       ],
-      "volume": "test",
+      "volume": "smoke2",
       "shape": "sphere",
       "material": "cloud"
     },

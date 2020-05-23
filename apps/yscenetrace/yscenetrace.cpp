@@ -37,6 +37,7 @@ namespace ptr = yocto::pathtrace;
 namespace cli = yocto::commonio;
 namespace sio = yocto::sceneio;
 namespace shp = yocto::shape;
+namespace img = yocto::image;
 
 #include <map>
 #include <memory>
@@ -52,7 +53,7 @@ void init_scene(ptr::scene* scene, sio::model* ioscene, ptr::camera*& camera,
   auto progress = vec2i{
       0, (int)ioscene->cameras.size() + (int)ioscene->environments.size() +
              (int)ioscene->materials.size() + (int)ioscene->textures.size() +
-             (int)ioscene->shapes.size() + (int)ioscene->subdivs.size() +
+             (int)ioscene->shapes.size() + (int)ioscene->subdivs.size() + (int)ioscene->volumes.size() + // vpt
              (int)ioscene->objects.size()};
 
   auto camera_map     = std::unordered_map<sio::camera*, ptr::camera*>{};
@@ -121,7 +122,7 @@ void init_scene(ptr::scene* scene, sio::model* ioscene, ptr::camera*& camera,
     set_subdiv_texcoords(subdiv, iosubdiv->texcoords);
     subdiv_map[iosubdiv] = subdiv;
   }
-
+  
   auto shape_map     = std::unordered_map<sio::shape*, ptr::shape*>{};
   shape_map[nullptr] = nullptr;
   for (auto ioshape : ioscene->shapes) {
@@ -154,6 +155,9 @@ void init_scene(ptr::scene* scene, sio::model* ioscene, ptr::camera*& camera,
               ioobject->material->displacement,
               texture_map.at(ioobject->material->displacement_tex));
         }
+        if(ioobject->volume) { // vpt
+          object->volume = ioobject->volume;
+        }
         set_material(object, material_map.at(ioobject->material));
       }
     } else {
@@ -167,6 +171,9 @@ void init_scene(ptr::scene* scene, sio::model* ioscene, ptr::camera*& camera,
         set_subdiv_displacement(subdiv_map.at(ioobject->subdiv),
             ioobject->material->displacement,
             texture_map.at(ioobject->material->displacement_tex));
+      }
+      if(ioobject->volume) { // vpt
+          object->volume = ioobject->volume;
       }
       set_material(object, material_map.at(ioobject->material));
     }
