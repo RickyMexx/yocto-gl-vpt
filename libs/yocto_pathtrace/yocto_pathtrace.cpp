@@ -429,7 +429,7 @@ static brdf eval_brdf(const ptr::object* object, int element, const vec2f& uv,
 static bool is_delta(const ptr::brdf& brdf) { return !brdf.roughness; }
 
 /// -----------------------------------------------------------------------------
-// VOLUMETRIC PATH TRACING FUNCTIONS
+// IMPLEMENTATION FOR VOLUMETRIC PATH TRACING (VPT)
 // -----------------------------------------------------------------------------
 
 // check if we have a vpt volume // vpt
@@ -439,15 +439,15 @@ static bool has_vptvolume(const ptr::object* object) {
 
 // check if we have a vpt volume // vpt
 static bool check_bounds(vec3i vox_idx, vec3i bounds) {
-  return vox_idx.x <= bounds.x && vox_idx.y <= bounds.y && vox_idx.z <= bounds.z;
+  return vox_idx.x < bounds.x && vox_idx.y < bounds.y && vox_idx.z < bounds.z;
 }
-
 
 // vsdf
 struct vsdf {
   vec3f density    = {0, 0, 0};
   vec3f scatter    = {0, 0, 0};
   float anisotropy = 0;
+  bool  htvolume   = false;
 };
 
 // evaluate volume
@@ -471,17 +471,20 @@ static vsdf eval_vsdf(const ptr::object* object, int element, const vec2f& uv, c
 
   // If we are dealing with a real volume we look into its voxels // vpt
   if(has_vptvolume(object)) {
+    vsdf.htvolume = true;
     auto vol = object->volume;
 
     // Transformed intersection point
     auto tp  = transform_point(inverse(object->frame), pos);
     // Scaling factor
-    auto s   = 1000.0f;
+    auto s   = 6000.0f;
     // Voxels index
     auto vox_idx = vec3i{(int) abs(tp.x*s), (int) abs(tp.y*s), (int) abs(tp.z*s)};
-    
+
     //printf("TPS: %d, %d, %d\n", vox_idx.x, vox_idx.y, vox_idx.z);
     //printf("BDS: %d, %d, %d\n", vol->extent.x, vol->extent.y, vol->extent.z);
+    //printf("voxels %zu\n", object->volume->voxels.size());
+
     if(check_bounds(vox_idx, vol->extent)) {
       auto ds = img::lookup_volume(*vol, vox_idx, false);
       vsdf.density = vec3f{ds, ds, ds};
@@ -494,6 +497,39 @@ static vsdf eval_vsdf(const ptr::object* object, int element, const vec2f& uv, c
 
   return vsdf;
 }
+
+static std::pair<float, float> delta_tracking(vsdf& vsdf, float max_distance, float rn, float eps, ray3f& ray) {
+  /*
+    Implementatiom based on PBRT and Production Volume Rendering paper, pp. 13-15 
+    (https://graphics.pixar.com/library/ProductionVolumeRendering/paper.pdf)
+  */
+
+  auto o = ray.o;
+  auto d = ray.d;
+  
+  // Max density inside the volume
+  float sigma_bar = 1.0;
+  
+  // Sampled distance
+  auto t = -log(1.0 - rn) / sigma_bar;
+  
+  // Exiting if out of the volume
+  if(t > max_distance) {
+    return {max_distance, 1.0};
+  }
+
+  float sigma_t = vsdf.density[0];
+  float sigma_n = sigma_bar - sigma_t;
+  float check   = 1 - sigma_n / sigma_bar;
+
+  // Hitting a particle
+  if(eps < check) {
+    return {t, 1.0 - sigma_t / sigma_bar};
+  }
+
+  return {t, 1.0};
+}
+
 
 // check if we have a volume
 static bool has_volume(const ptr::object* object) {
@@ -1210,22 +1246,38 @@ static vec4f trace_path(const ptr::scene* scene, const ray3f& ray_,
       radiance += weight * eval_environment(scene, ray);
       break;
     }
-    //auto s = 1000.0f;
-    auto vol_pos = ray.o + ray.d * intersection.distance;
-    //printf("INTERPOINT: %f, %f, %f\n", vol_pos.x*s, vol_pos.y*s, vol_pos.z*s);
-
-    // handle transmission if inside a volume
+    
+    auto particle = false;
     auto in_volume = false;
-    if (!volume_stack.empty()) {
-      auto& vsdf     = volume_stack.back();
-      auto  distance = sample_transmittance(
-          vsdf.density, intersection.distance, rand1f(rng), rand1f(rng));
-      weight *= eval_transmittance(vsdf.density, distance) /
-                sample_transmittance_pdf(
-                    vsdf.density, distance, intersection.distance);
-      in_volume             = distance < intersection.distance;
-      intersection.distance = distance;
-    }
+    if(!volume_stack.empty()) {
+      auto &vsdf = volume_stack.back();
+      
+      // Check whether we are working with a volume
+      if(vsdf.htvolume) {
+        auto [dist, w] = delta_tracking(vsdf, intersection.distance, rand1f(rng), rand1f(rng), ray);
+
+        // Check if a particle has been hit
+        particle = w != 1.0;
+        if(particle) {
+          weight *= (1 - w) * vsdf.scatter / 0.35;
+        } else {
+          weight *= w; // w is 1 here, leaving it for correctness tests
+        }	
+
+        in_volume = dist < intersection.distance;
+        intersection.distance = dist;	
+      } else {
+        auto  distance = sample_transmittance(vsdf.density, intersection.distance, rand1f(rng), rand1f(rng));
+        weight *= eval_transmittance(vsdf.density, distance) /
+                  sample_transmittance_pdf(
+                      vsdf.density, distance, intersection.distance);
+        in_volume             = distance < intersection.distance;
+        intersection.distance = distance;
+      }
+    } 
+   
+
+    auto vol_pos = ray.o + ray.d * intersection.distance;
 
     // switch between surface and volume
     if (!in_volume) {
@@ -1283,30 +1335,28 @@ static vec4f trace_path(const ptr::scene* scene, const ray3f& ray_,
       // setup next iteration
       ray = {position, incoming};
     } else {
-      // prepare shading point
       auto  outgoing = -ray.d;
+      auto  incoming = zero3f;
       auto  position = ray.o + ray.d * intersection.distance;
       auto& vsdf     = volume_stack.back();
+      
+      if(!vsdf.htvolume || particle) {
+        // handle opacity
+        hit = true;
+      
+        // radiance += weight * eval_volemission(vsdf, outgoing);
 
-      // handle opacity
-      hit = true;
+        if (rand1f(rng) < 0.5f) {
+          incoming = sample_scattering(vsdf, outgoing, rand1f(rng), rand2f(rng));
+        } else {
+          incoming = sample_lights(
+              scene, position, rand1f(rng), rand1f(rng), rand2f(rng));
+        }
+        weight *= eval_scattering(vsdf, outgoing, incoming) /
+                  (0.5f * sample_scattering_pdf(vsdf, outgoing, incoming) +
+                      0.5f * sample_lights_pdf(scene, position, incoming));
+        }
 
-      // accumulate emission
-      // radiance += weight * eval_volemission(vsdf, outgoing);
-
-      // next direction
-      auto incoming = zero3f;
-      if (rand1f(rng) < 0.5f) {
-        incoming = sample_scattering(vsdf, outgoing, rand1f(rng), rand2f(rng));
-      } else {
-        incoming = sample_lights(
-            scene, position, rand1f(rng), rand1f(rng), rand2f(rng));
-      }
-      weight *= eval_scattering(vsdf, outgoing, incoming) /
-                (0.5f * sample_scattering_pdf(vsdf, outgoing, incoming) +
-                    0.5f * sample_lights_pdf(scene, position, incoming));
-
-      // setup next iteration
       ray = {position, incoming};
     }
 
@@ -1805,6 +1855,7 @@ inline void parallel_for(
 // Progressively compute an image by calling trace_samples multiple times.
 void trace_samples(ptr::state* state, const ptr::scene* scene,
     const ptr::camera* camera, const trace_params& params) {
+    
   if (params.noparallel) {
     for (auto j = 0; j < state->render.size().y; j++) {
       for (auto i = 0; i < state->render.size().x; i++) {

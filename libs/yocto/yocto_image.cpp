@@ -1302,7 +1302,6 @@ namespace yocto::image {
 // Lookup volume
 float lookup_volume(
     const volume<float>& vol, const vec3i& ijk, bool as_linear) {
-  printf("vec is %d, %d, %d", ijk[0], ijk[1], ijk[2]);
   return vol[ijk];
 }
 

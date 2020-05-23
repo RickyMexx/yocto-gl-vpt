@@ -156,7 +156,9 @@ void init_scene(ptr::scene* scene, sio::model* ioscene, ptr::camera*& camera,
               texture_map.at(ioobject->material->displacement_tex));
         }
         if(ioobject->volume) { // vpt
-          object->volume = ioobject->volume;
+          auto volcopy = new img::volume<float>;
+          *volcopy = *ioobject->volume;
+          object->volume = volcopy;
         }
         set_material(object, material_map.at(ioobject->material));
       }
@@ -173,7 +175,9 @@ void init_scene(ptr::scene* scene, sio::model* ioscene, ptr::camera*& camera,
             texture_map.at(ioobject->material->displacement_tex));
       }
       if(ioobject->volume) { // vpt
-          object->volume = ioobject->volume;
+        auto volcopy = new img::volume<float>;
+        *volcopy = *ioobject->volume;
+        object->volume = volcopy;
       }
       set_material(object, material_map.at(ioobject->material));
     }
