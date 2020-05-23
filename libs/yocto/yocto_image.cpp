@@ -1300,8 +1300,9 @@ image<vec4b> add_logo(const image<vec4b>& img, const std::string& type) {
 namespace yocto::image {
 
 // Lookup volume
-inline float lookup_volume(
+float lookup_volume(
     const volume<float>& vol, const vec3i& ijk, bool as_linear) {
+  printf("vec is %d, %d, %d", ijk[0], ijk[1], ijk[2]);
   return vol[ijk];
 }
 

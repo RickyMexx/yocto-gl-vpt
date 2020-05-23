@@ -475,6 +475,9 @@ inline void swap(volume<T>& a, volume<T>& b);
 // -----------------------------------------------------------------------------
 namespace yocto::image {
 
+// Lookup volume
+float lookup_volume(const volume<float>& vol, const vec3i& ijk, bool as_linear=false);
+
 // Evaluates a color image at a point `uv`.
 float eval_volume(const image<float>& img, const vec3f& uvw,
     bool no_interpolation = false, bool clamp_to_edge = false);

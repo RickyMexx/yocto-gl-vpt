@@ -428,10 +428,20 @@ static brdf eval_brdf(const ptr::object* object, int element, const vec2f& uv,
 // check if a brdf is a delta
 static bool is_delta(const ptr::brdf& brdf) { return !brdf.roughness; }
 
+/// -----------------------------------------------------------------------------
+// VOLUMETRIC PATH TRACING FUNCTIONS
+// -----------------------------------------------------------------------------
+
 // check if we have a vpt volume // vpt
 static bool has_vptvolume(const ptr::object* object) {
   return object->volume != nullptr;
 }
+
+// check if we have a vpt volume // vpt
+static bool check_bounds(vec3i vox_idx, vec3i bounds) {
+  return vox_idx.x <= bounds.x && vox_idx.y <= bounds.y && vox_idx.z <= bounds.z;
+}
+
 
 // vsdf
 struct vsdf {
@@ -441,12 +451,10 @@ struct vsdf {
 };
 
 // evaluate volume
-static vsdf eval_vsdf(const ptr::object* object, int element, const vec2f& uv) {
+static vsdf eval_vsdf(const ptr::object* object, int element, const vec2f& uv, const vec3f& pos) {
   auto material = object->material;
   // initialize factors
   auto texcoord = eval_texcoord(object, element, uv);
-  auto position = eval_position(object, element, uv);
-
   auto base     = material->color *
               eval_texture(material->color_tex, texcoord, false);
   auto transmission = material->transmission *
@@ -463,10 +471,21 @@ static vsdf eval_vsdf(const ptr::object* object, int element, const vec2f& uv) {
 
   // If we are dealing with a real volume we look into its voxels // vpt
   if(has_vptvolume(object)) {
-    //printf("size is %d, %d, %d\n", object->volume->extent.x, object->volume->extent.y, object->volume->extent.z); // test print
-    //auto voxs = object->volume->voxels;
+    auto vol = object->volume;
+
+    // Transformed intersection point
+    auto tp  = transform_point(inverse(object->frame), pos);
+    // Scaling factor
+    auto s   = 1000.0f;
+    // Voxels index
+    auto vox_idx = vec3i{(int) abs(tp.x*s), (int) abs(tp.y*s), (int) abs(tp.z*s)};
     
-    // TO-DO
+    //printf("TPS: %d, %d, %d\n", vox_idx.x, vox_idx.y, vox_idx.z);
+    //printf("BDS: %d, %d, %d\n", vol->extent.x, vol->extent.y, vol->extent.z);
+    if(check_bounds(vox_idx, vol->extent)) {
+      auto ds = img::lookup_volume(*vol, vox_idx, false);
+      vsdf.density = vec3f{ds, ds, ds};
+    }
   } else {
     vsdf.density = (transmission && !thin)
                     ? -log(clamp(base, 0.0001f, 1.0f)) / trdepth
@@ -1191,6 +1210,9 @@ static vec4f trace_path(const ptr::scene* scene, const ray3f& ray_,
       radiance += weight * eval_environment(scene, ray);
       break;
     }
+    //auto s = 1000.0f;
+    auto vol_pos = ray.o + ray.d * intersection.distance;
+    //printf("INTERPOINT: %f, %f, %f\n", vol_pos.x*s, vol_pos.y*s, vol_pos.z*s);
 
     // handle transmission if inside a volume
     auto in_volume = false;
@@ -1251,7 +1273,7 @@ static vec4f trace_path(const ptr::scene* scene, const ray3f& ray_,
       if ((has_volume(object) || has_vptvolume(object)) &&
           dot(normal, outgoing) * dot(normal, incoming) < 0) {
         if (volume_stack.empty()) {
-          auto volpoint = eval_vsdf(object, element, uv);
+          auto volpoint = eval_vsdf(object, element, uv, vol_pos);
           volume_stack.push_back(volpoint);
         } else {
           volume_stack.pop_back();
