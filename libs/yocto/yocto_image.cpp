@@ -1306,7 +1306,7 @@ float lookup_volume(
 }
 
 // Evaluates a color image at a point `uv`.
-inline float eval_volume(const volume<float>& vol, const vec3f& uvw,
+  float eval_volume(const volume<float>& vol, const vec3f& uvw,
     bool ldr_as_linear, bool no_interpolation, bool clamp_to_edge) {
   if (vol.empty()) return 0;
 
