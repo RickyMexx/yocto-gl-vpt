@@ -37,6 +37,7 @@
 # output folders
 /bin/*
 /build/*
+/out/*
 
 # vscode
 /.vscode/*

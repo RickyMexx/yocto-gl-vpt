@@ -92,11 +92,12 @@ struct app_state {
 void init_scene(ptr::scene* scene, sio::model* ioscene, ptr::camera*& camera,
     sio::camera* iocamera, sio::progress_callback print_progress = {}) {
   // handle progress
-  auto progress = vec2i{
-      0, (int)ioscene->cameras.size() + (int)ioscene->environments.size() +
-             (int)ioscene->materials.size() + (int)ioscene->textures.size() +
-             (int)ioscene->shapes.size() + (int)ioscene->subdivs.size() +
-             (int)ioscene->objects.size()};
+  auto progress =
+    vec2i{
+	  0, (int)ioscene->cameras.size() + (int)ioscene->environments.size() +
+	  (int)ioscene->materials.size() + (int)ioscene->textures.size() +
+	  (int)ioscene->shapes.size() + (int)ioscene->subdivs.size() +
+	  + (int) ioscene->volumes.size() + (int)ioscene->objects.size()}; // vpt
 
   auto camera_map     = std::unordered_map<sio::camera*, ptr::camera*>{};
   camera_map[nullptr] = nullptr;
@@ -202,6 +203,11 @@ void init_scene(ptr::scene* scene, sio::model* ioscene, ptr::camera*& camera,
               ioobject->material->displacement,
               texture_map.at(ioobject->material->displacement_tex));
         }
+	if (ioobject->volume) { // vpt
+	  auto volcopy = new img::volume<float>;
+	  *volcopy = *ioobject->volume;
+	  object->volume = volcopy;
+	}
         set_material(object, material_map.at(ioobject->material));
       }
     } else {
@@ -215,6 +221,11 @@ void init_scene(ptr::scene* scene, sio::model* ioscene, ptr::camera*& camera,
         set_subdiv_displacement(subdiv_map.at(ioobject->subdiv),
             ioobject->material->displacement,
             texture_map.at(ioobject->material->displacement_tex));
+      }
+      if (ioobject->volume) { // vpt
+	auto volcopy = new img::volume<float>;
+	*volcopy = *ioobject->volume;
+	object->volume = volcopy;
       }
       set_material(object, material_map.at(ioobject->material));
     }

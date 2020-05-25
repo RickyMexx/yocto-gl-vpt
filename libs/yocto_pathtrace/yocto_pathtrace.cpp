@@ -35,6 +35,7 @@
 #include <future>
 #include <memory>
 #include <mutex>
+#include <algorithm> // vpt (for max_element)
 using namespace std::string_literals;
 
 // -----------------------------------------------------------------------------
@@ -447,7 +448,12 @@ struct vsdf {
   vec3f density    = {0, 0, 0};
   vec3f scatter    = {0, 0, 0};
   float anisotropy = 0;
+  // homogeneous volume properties
   bool  htvolume   = false;
+  float max_density = 0.0f;
+  frame3f oframe = identity3x4f;
+  img::volume<float> *ovol;
+  vec3f scale = {1.0, 1.0, 1.0};
 };
 
 // evaluate volume
@@ -474,12 +480,23 @@ static vsdf eval_vsdf(const ptr::object* object, int element, const vec2f& uv, c
     vsdf.htvolume = true;
     auto vol = object->volume;
 
+    //vsdf.max_density = *std::max_element(vol->begin(), vol->end());
+    vsdf.max_density = 0.4854 * 100;
+    vsdf.oframe = object->frame;
+    vsdf.ovol = vol;
+    
+
+
     // Transformed intersection point
     auto tp  = transform_point(inverse(object->frame), pos);
     // Scaling factor
-    auto s   = 6000.0f;
+    // auto s   = 6000.0f;
+    auto s = 1.5f;
     // Voxels index
     auto vox_idx = vec3i{(int) abs(tp.x*s), (int) abs(tp.y*s), (int) abs(tp.z*s)};
+
+    //vsdf.scale = vec3f{1.0, 0.5, 1.0};
+    vsdf.scale = vec3f{0.4, 0.4, 0.4};
 
     //printf("TPS: %d, %d, %d\n", vox_idx.x, vox_idx.y, vox_idx.z);
     //printf("BDS: %d, %d, %d\n", vol->extent.x, vol->extent.y, vol->extent.z);
@@ -498,37 +515,69 @@ static vsdf eval_vsdf(const ptr::object* object, int element, const vec2f& uv, c
   return vsdf;
 }
 
-static std::pair<float, float> delta_tracking(vsdf& vsdf, float max_distance, float rn, float eps, ray3f& ray) {
-  /*
-    Implementatiom based on PBRT and Production Volume Rendering paper, pp. 13-15 
-    (https://graphics.pixar.com/library/ProductionVolumeRendering/paper.pdf)
-  */
+  /**
+   * Delta tracking implementation based on PBRT Book (chap. Light Transport II: Volume Rendering)
+   */
+  static std::pair<float, float> delta_tracking(const vsdf& vsdf, float max_distance, float rn,
+						float eps, const ray3f& ray) {
+    // Precompute values for Monte Carlo sampling on img::volume<float>
+    float imax_density = 1.0f / vsdf.max_density;
+    float sigma_t = 1.0f;
+    // Sample distance in the volume
+    float t = - log(1.0 - eps) * imax_density / sigma_t;
+    // float t = - log(1.0 - eps) / 20.f;
+    if (t >= max_distance) {
+      // intersection out of volume bounds
+      return {max_distance, 1.0f};
+    }
+    auto local_ipoint = transform_point(inverse(vsdf.oframe), ray.o + t * ray.d);
+    float vdensity = eval_volume(*vsdf.ovol, local_ipoint * vsdf.scale, false, true, true) * 100;
 
-  auto o = ray.o;
-  auto d = ray.d;
-  
-  // Max density inside the volume
-  float sigma_bar = 1.0;
-  
-  // Sampled distance
-  auto t = -log(1.0 - rn) / sigma_bar;
-  
-  // Exiting if out of the volume
-  if(t > max_distance) {
-    return {max_distance, 1.0};
+    // if (vdensity == 0.0f) {
+    //   return {t, 1.0f};
+    // } else {
+    //   return {t, 1.0 - vdensity * imax_density};
+    // }
+    
+    if (vdensity * imax_density > rn) {
+      // return transmittance
+      //printf("vdensity : %f\tcorr_density : %f\n", vdensity, vdensity * imax_density);
+      return {t, 1.0 - max(0.0f, vdensity * imax_density)};
+    }
+    return {t, 1.0};    
   }
 
-  float sigma_t = vsdf.density[0];
-  float sigma_n = sigma_bar - sigma_t;
-  float check   = 1 - sigma_n / sigma_bar;
+// static std::pair<float, float> delta_tracking(vsdf& vsdf, float max_distance, float rn, float eps, ray3f& ray) {
+//   /*
+//     Implementatiom based on PBRT and Production Volume Rendering paper, pp. 13-15 
+//     (https://graphics.pixar.com/library/ProductionVolumeRendering/paper.pdf)
+//   */
 
-  // Hitting a particle
-  if(eps < check) {
-    return {t, 1.0 - sigma_t / sigma_bar};
-  }
+//   auto o = ray.o;
+//   auto d = ray.d;
+  
+//   // Max density inside the volume
+//   float sigma_bar = 1.0;
+  
+//   // Sampled distance
+//   auto t = -log(1.0 - rn) / sigma_bar;
+  
+//   // Exiting if out of the volume
+//   if(t > max_distance) {
+//     return {max_distance, 1.0};
+//   }
 
-  return {t, 1.0};
-}
+//   float sigma_t = vsdf.density[0];
+//   float sigma_n = sigma_bar - sigma_t;
+//   float check   = 1 - sigma_n / sigma_bar;
+
+//   // Hitting a particle
+//   if(eps < check) {
+//     return {t, 1.0 - sigma_t / sigma_bar};
+//   }
+
+//   return {t, 1.0};
+// }
 
 
 // check if we have a volume
@@ -1258,14 +1307,16 @@ static vec4f trace_path(const ptr::scene* scene, const ray3f& ray_,
 
         // Check if a particle has been hit
         particle = w != 1.0;
-        if(particle) {
-          weight *= (1 - w) * vsdf.scatter / 0.35;
-        } else {
-          weight *= w; // w is 1 here, leaving it for correctness tests
-        }	
+	
+	weight *= w;
+        // if(particle) {
+        //   weight *= w;
+        // } else {
+        //   weight *= w; // w is 1 here, leaving it for correctness tests
+        // }
 
         in_volume = dist < intersection.distance;
-        intersection.distance = dist;	
+	intersection.distance = dist;	
       } else {
         auto  distance = sample_transmittance(vsdf.density, intersection.distance, rand1f(rng), rand1f(rng));
         weight *= eval_transmittance(vsdf.density, distance) /
@@ -1336,27 +1387,26 @@ static vec4f trace_path(const ptr::scene* scene, const ray3f& ray_,
       ray = {position, incoming};
     } else {
       auto  outgoing = -ray.d;
-      auto  incoming = zero3f;
+      auto  incoming = ray.d;
       auto  position = ray.o + ray.d * intersection.distance;
       auto& vsdf     = volume_stack.back();
+      hit = true;
       
-      if(!vsdf.htvolume || particle) {
-        // handle opacity
-        hit = true;
-      
-        // radiance += weight * eval_volemission(vsdf, outgoing);
-
-        if (rand1f(rng) < 0.5f) {
-          incoming = sample_scattering(vsdf, outgoing, rand1f(rng), rand2f(rng));
-        } else {
-          incoming = sample_lights(
-              scene, position, rand1f(rng), rand1f(rng), rand2f(rng));
-        }
-        weight *= eval_scattering(vsdf, outgoing, incoming) /
-                  (0.5f * sample_scattering_pdf(vsdf, outgoing, incoming) +
-                      0.5f * sample_lights_pdf(scene, position, incoming));
-        }
-
+      if(!vsdf.htvolume || particle) {      
+        //radiance = weight * eval_volemission(vsdf, outgoing);
+	
+	if (rand1f(rng) < 0.1f) {
+	  incoming = sample_scattering(vsdf, outgoing, rand1f(rng), rand2f(rng));
+	} else {
+	  incoming = sample_lights(
+				   scene, position, rand1f(rng), rand1f(rng), rand2f(rng));
+	}
+	weight *= eval_scattering(vsdf, outgoing, incoming) /
+	  (0.1f * sample_scattering_pdf(vsdf, outgoing, incoming) +
+	   0.9f * sample_lights_pdf(scene, position, incoming));
+      } else {
+	bounce -= 1; // do not consider a null-hit particle in the bounces
+      }
       ray = {position, incoming};
     }
 
