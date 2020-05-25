@@ -453,7 +453,7 @@ struct vsdf {
   float max_density = 0.0f;
   frame3f oframe = identity3x4f;
   img::volume<float> *ovol;
-  float scale = 1.0f;
+  vec3f scale = {1.0, 1.0, 1.0};
 };
 
 // evaluate volume
@@ -481,7 +481,7 @@ static vsdf eval_vsdf(const ptr::object* object, int element, const vec2f& uv, c
     auto vol = object->volume;
 
     //vsdf.max_density = *std::max_element(vol->begin(), vol->end());
-    vsdf.max_density = 0.4854;
+    vsdf.max_density = 0.4854 * 100;
     vsdf.oframe = object->frame;
     vsdf.ovol = vol;
     
@@ -491,11 +491,12 @@ static vsdf eval_vsdf(const ptr::object* object, int element, const vec2f& uv, c
     auto tp  = transform_point(inverse(object->frame), pos);
     // Scaling factor
     // auto s   = 6000.0f;
-    auto s = 6000.0f;
+    auto s = 1.5f;
     // Voxels index
     auto vox_idx = vec3i{(int) abs(tp.x*s), (int) abs(tp.y*s), (int) abs(tp.z*s)};
 
-    vsdf.scale = s;
+    //vsdf.scale = vec3f{1.0, 0.5, 1.0};
+    vsdf.scale = vec3f{0.4, 0.4, 0.4};
 
     //printf("TPS: %d, %d, %d\n", vox_idx.x, vox_idx.y, vox_idx.z);
     //printf("BDS: %d, %d, %d\n", vol->extent.x, vol->extent.y, vol->extent.z);
@@ -520,24 +521,30 @@ static vsdf eval_vsdf(const ptr::object* object, int element, const vec2f& uv, c
   static std::pair<float, float> delta_tracking(const vsdf& vsdf, float max_distance, float rn,
 						float eps, const ray3f& ray) {
     // Precompute values for Monte Carlo sampling on img::volume<float>
-    float sigma_t = 0.5f; // T.B.D.
     float imax_density = 1.0f / vsdf.max_density;
+    float sigma_t = 1.0f;
     // Sample distance in the volume
-    //float t = - log(1.0 - eps) * imax_density / sigma_t;
-    float t = - log(1.0 - eps) * imax_density;
+    float t = - log(1.0 - eps) * imax_density / sigma_t;
+    // float t = - log(1.0 - eps) / 20.f;
     if (t >= max_distance) {
       // intersection out of volume bounds
       return {max_distance, 1.0f};
     }
     auto local_ipoint = transform_point(inverse(vsdf.oframe), ray.o + t * ray.d);
-    float vdensity = eval_volume(*vsdf.ovol, local_ipoint, false, true, false);
-    // printf("coord : (%f, %f, %f), vdensity : %f\n", local_ipoint.x,
-    // 	   local_ipoint.y, local_ipoint.z, vdensity);
-    if (rn < vdensity / sigma_t) {
-      return {t, 0.0};
+    float vdensity = eval_volume(*vsdf.ovol, local_ipoint * vsdf.scale, false, true, true) * 100;
+
+    // if (vdensity == 0.0f) {
+    //   return {t, 1.0f};
+    // } else {
+    //   return {t, 1.0 - vdensity * imax_density};
+    // }
+    
+    if (vdensity * imax_density > rn) {
+      // return transmittance
+      //printf("vdensity : %f\tcorr_density : %f\n", vdensity, vdensity * imax_density);
+      return {t, 1.0 - max(0.0f, vdensity * imax_density)};
     }
-    // Null collision happened
-    return {t, 1.0};
+    return {t, 1.0};    
   }
 
 // static std::pair<float, float> delta_tracking(vsdf& vsdf, float max_distance, float rn, float eps, ray3f& ray) {
@@ -1300,12 +1307,13 @@ static vec4f trace_path(const ptr::scene* scene, const ray3f& ray_,
 
         // Check if a particle has been hit
         particle = w != 1.0;
-        if(particle) {
-          weight *= (1 - w) * vsdf.scatter / 0.35;
-	  //weight *= {1.0, 0.0, 0.0};
-        } else {
-          weight *= w; // w is 1 here, leaving it for correctness tests
-        }	
+	
+	weight *= w;
+        // if(particle) {
+        //   weight *= w;
+        // } else {
+        //   weight *= w; // w is 1 here, leaving it for correctness tests
+        // }
 
         in_volume = dist < intersection.distance;
 	intersection.distance = dist;	
@@ -1386,21 +1394,18 @@ static vec4f trace_path(const ptr::scene* scene, const ray3f& ray_,
       
       if(!vsdf.htvolume || particle) {      
         //radiance = weight * eval_volemission(vsdf, outgoing);
-
-	if(vsdf.htvolume) {
-	  //radiance += vec3f{1.0, 1.0, 1.0};
-	  weight *= {1.0, 0.0, 0.0};
+	
+	if (rand1f(rng) < 0.1f) {
+	  incoming = sample_scattering(vsdf, outgoing, rand1f(rng), rand2f(rng));
 	} else {
-	  if (rand1f(rng) < 0.5f) {
-	    incoming = sample_scattering(vsdf, outgoing, rand1f(rng), rand2f(rng));
-	  } else {
-	    incoming = sample_lights(
-				     scene, position, rand1f(rng), rand1f(rng), rand2f(rng));
-	  }
-	  weight *= eval_scattering(vsdf, outgoing, incoming) /
-	    (0.5f * sample_scattering_pdf(vsdf, outgoing, incoming) +
-	     0.5f * sample_lights_pdf(scene, position, incoming));
-        }
+	  incoming = sample_lights(
+				   scene, position, rand1f(rng), rand1f(rng), rand2f(rng));
+	}
+	weight *= eval_scattering(vsdf, outgoing, incoming) /
+	  (0.1f * sample_scattering_pdf(vsdf, outgoing, incoming) +
+	   0.9f * sample_lights_pdf(scene, position, incoming));
+      } else {
+	bounce -= 1; // do not consider a null-hit particle in the bounces
       }
       ray = {position, incoming};
     }
