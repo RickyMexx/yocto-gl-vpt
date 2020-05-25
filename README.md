@@ -15,6 +15,13 @@ how well it worked, performance numbers and include commented images
 - [Riccardo Caprari](https://github.com/RickyMexx)
 - [Emanuele Giacomini](https://github.com/EmanueleGiacomini)
 
+## References
+- [Yocto/GL](https://xelatihy.github.io/yocto-gl/)
+- [OpenVDB](https://www.openvdb.org/)
+- [Physically Based Rendering](https://www.pbrt.org/): from Theory to Implementation
+- [Production Volume Rendering](https://graphics.pixar.com/library/ProductionVolumeRendering/paper.pdf): Pixar Animation Studios
+
+
 
 
 
