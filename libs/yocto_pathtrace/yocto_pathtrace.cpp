@@ -484,7 +484,7 @@ static vsdf eval_vsdf(const ptr::object* object, int element, const vec2f& uv, c
     vsdf.htvolume = true;
     auto vol = object->volume;
 
-    vsdf.max_density = vol->max_voxel * 100;
+    vsdf.max_density = vol->max_voxel * 10;
     vsdf.oframe = object->frame;
     vsdf.ovol = vol;
 
@@ -498,7 +498,7 @@ static vsdf eval_vsdf(const ptr::object* object, int element, const vec2f& uv, c
     auto vox_idx = vec3i{(int) abs(tp.x*s), (int) abs(tp.y*s), (int) abs(tp.z*s)};
 
     //vsdf.scale = vec3f{1.0, 0.5, 1.0};
-    vsdf.scale = vec3f{0.4, 0.4, 0.4};
+    vsdf.scale = vec3f{0.6, 0.6, 0.6};
 
     //printf("TPS: %d, %d, %d\n", vox_idx.x, vox_idx.y, vox_idx.z);
     //printf("BDS: %d, %d, %d\n", vol->extent.x, vol->extent.y, vol->extent.z);
