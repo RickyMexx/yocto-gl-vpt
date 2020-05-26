@@ -520,7 +520,7 @@ static vsdf eval_vsdf(const ptr::object* object, int element, const vec2f& uv, c
   /**
    * Delta tracking implementation based on PBRT Book (chap. Light Transport II: Volume Rendering)
    */
-  static std::pair<float, float> delta_tracking(const vsdf& vsdf, float max_distance, float rn,
+  static std::pair<float, float> delta_tracking(vsdf& vsdf, float max_distance, float rn,
 						float eps, const ray3f& ray) {
     // Precompute values for Monte Carlo sampling on img::volume<float>
     float imax_density = 1.0f / vsdf.max_density;
@@ -533,7 +533,8 @@ static vsdf eval_vsdf(const ptr::object* object, int element, const vec2f& uv, c
       return {max_distance, 1.0f};
     }
     auto local_ipoint = transform_point(inverse(vsdf.oframe), ray.o + t * ray.d);
-    float vdensity = eval_volume(*vsdf.ovol, local_ipoint * vsdf.scale, false, true, true) * 100;
+    float vdensity = eval_volume(*vsdf.ovol, local_ipoint * vsdf.scale, false, true, true) * 10;
+    vsdf.density = vec3f{vdensity, vdensity, vdensity};
 
     // if (vdensity == 0.0f) {
     //   return {t, 1.0f};
@@ -544,6 +545,10 @@ static vsdf eval_vsdf(const ptr::object* object, int element, const vec2f& uv, c
     if (vdensity * imax_density > rn) {
       // return transmittance
       //printf("vdensity : %f\tcorr_density : %f\n", vdensity, vdensity * imax_density);
+      // Russian roulette based on albedo
+      if (vsdf.scatter.x < rn) {
+	return {t, 0.0};      
+      }
       return {t, 1.0 - max(0.0f, vdensity * imax_density)};
     }
     return {t, 1.0};    
@@ -1397,15 +1402,15 @@ static vec4f trace_path(const ptr::scene* scene, const ray3f& ray_,
       if(!vsdf.htvolume || particle) {      
         //radiance = weight * eval_volemission(vsdf, outgoing);
 	
-	if (rand1f(rng) < 0.1f) {
+	if (rand1f(rng) < 0.5f) {
 	  incoming = sample_scattering(vsdf, outgoing, rand1f(rng), rand2f(rng));
 	} else {
 	  incoming = sample_lights(
 				   scene, position, rand1f(rng), rand1f(rng), rand2f(rng));
 	}
 	weight *= eval_scattering(vsdf, outgoing, incoming) /
-	  (0.1f * sample_scattering_pdf(vsdf, outgoing, incoming) +
-	   0.9f * sample_lights_pdf(scene, position, incoming));
+	  (0.5f * sample_scattering_pdf(vsdf, outgoing, incoming) +
+	   0.5f * sample_lights_pdf(scene, position, incoming));
       } else {
 	bounce -= 1; // do not consider a null-hit particle in the bounces
       }
