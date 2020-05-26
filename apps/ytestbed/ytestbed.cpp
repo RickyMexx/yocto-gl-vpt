@@ -27,7 +27,7 @@ void test_volume(void) {
   auto ivol = img::volume<float>();
   std::string err_str;
   int ret = 0;
-  ret = img::load_volume("../ovdb_dumps/smoke2.vol", ivol, err_str);
+  ret = img::load_volume("../ovdb_dumps/explosion.vol", ivol, err_str);
   if (!ret) {
     std::cout << err_str << std::endl;
     return;
