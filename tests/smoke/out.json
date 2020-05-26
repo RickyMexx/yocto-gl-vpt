@@ -44,8 +44,8 @@
     "light": {
       "emission": [
         30,
-        30,
-        30
+        0,
+        0
       ]
     }, 
     "material1": {
@@ -62,7 +62,8 @@
       ],
       "phaseg": 0,
       "ior": 1,
-      "thin": false
+	"thin": false,
+	"scanisotropy" : -0.4
     }
   },
   "objects": {
@@ -119,7 +120,7 @@
       ],
       "material": "material1",
       "shape": "shape1",
-      "volume": "smoke2"
+      "volume": "explosion"
     }
   }
 }
