@@ -193,7 +193,8 @@
         0.6,
         0.3
       ],
-      "thin": false
+      "thin": false,
+      "volumetric_tex": "vtex"
     },
     "smoke": {
       "transmission": 1,

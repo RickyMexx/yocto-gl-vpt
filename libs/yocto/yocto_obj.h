@@ -128,6 +128,7 @@ struct material {
   texture bump_tex         = {};
   texture normal_tex       = {};
   texture displacement_tex = {};
+  texture volumetric_tex   = {}; // vpt
 
   // pbrt extension values
   bool  as_pbr            = false;
@@ -164,6 +165,7 @@ struct material {
   texture pbr_bump_tex          = {};
   texture pbr_normal_tex        = {};
   texture pbr_displacement_tex  = {};
+  texture pbr_volumetric_tex    = {}; // vpt
 };
 
 // Obj shape

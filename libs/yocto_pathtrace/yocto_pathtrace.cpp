@@ -35,7 +35,6 @@
 #include <future>
 #include <memory>
 #include <mutex>
-#include <algorithm> // vpt (for max_element)
 using namespace std::string_literals;
 
 // -----------------------------------------------------------------------------
@@ -438,6 +437,11 @@ static bool has_vptvolume(const ptr::object* object) {
   return object->volume != nullptr;
 }
 
+// check if we have a vpt texture // vpt
+static bool has_vpttexture(const ptr::object* object) {
+  return object->material->volumetric_tex != nullptr;
+}
+
 // check if we have a vpt volume // vpt
 static bool check_bounds(vec3i vox_idx, vec3i bounds) {
   return vox_idx.x < bounds.x && vox_idx.y < bounds.y && vox_idx.z < bounds.z;
@@ -480,11 +484,9 @@ static vsdf eval_vsdf(const ptr::object* object, int element, const vec2f& uv, c
     vsdf.htvolume = true;
     auto vol = object->volume;
 
-    //vsdf.max_density = *std::max_element(vol->begin(), vol->end());
-    vsdf.max_density = 0.4854 * 100;
+    vsdf.max_density = vol->max_voxel * 100;
     vsdf.oframe = object->frame;
     vsdf.ovol = vol;
-    
 
 
     // Transformed intersection point
@@ -2134,6 +2136,9 @@ void set_scattering(ptr::material* material, const vec3f& scattering,
 }
 void set_normalmap(ptr::material* material, ptr::texture* normal_tex) {
   material->normal_tex = normal_tex;
+}
+void set_volumetric(ptr::material* material, ptr::texture* volumetric_tex) { // vpt
+  material->volumetric_tex = volumetric_tex;
 }
 
 // Add environment

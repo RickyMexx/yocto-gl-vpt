@@ -36,6 +36,7 @@
 #include <future>
 #include <memory>
 #include <thread>
+#include <algorithm>
 
 #include "ext/stb_image.h"
 #include "ext/stb_image_resize.h"
@@ -2229,6 +2230,7 @@ bool load_volume(
   auto voxels = load_yvol(filename.c_str(), &width, &height, &depth, &ncomp, 1);
   if (!voxels) return read_error();
   vol = volume{{width, height, depth}, (const float*)voxels};
+  vol.max_voxel = *std::max_element(vol.voxels.begin(), vol.voxels.end());
   delete[] voxels;
   return true;
 }

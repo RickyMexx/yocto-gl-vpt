@@ -154,6 +154,7 @@ void init_scene(ptr::scene* scene, sio::model* ioscene, ptr::camera*& camera,
     set_scattering(material, iomaterial->scattering, iomaterial->scanisotropy,
         texture_map.at(iomaterial->scattering_tex));
     set_normalmap(material, texture_map.at(iomaterial->normal_tex));
+    set_volumetric(material, texture_map.at(iomaterial->volumetric_tex)); // vpt
     material_map[iomaterial] = material;
   }
 
