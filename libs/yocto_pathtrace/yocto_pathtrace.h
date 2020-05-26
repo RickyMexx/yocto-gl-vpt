@@ -132,6 +132,7 @@ void set_thin(ptr::material* material, bool thin);
 void set_scattering(ptr::material* material, const vec3f& scattering,
     float scanisotropy, ptr::texture* scattering_tex = nullptr);
 void set_normalmap(ptr::material* material, ptr::texture* normal_tex);
+void set_volumetric(ptr::material* material, ptr::texture* volumetric_tex); // vpt
 
 // shape properties
 void set_points(ptr::shape* shape, const std::vector<int>& points);
@@ -303,6 +304,7 @@ struct material {
   ptr::texture* scattering_tex   = nullptr;
   ptr::texture* opacity_tex      = nullptr;
   ptr::texture* normal_tex       = nullptr;
+  ptr::texture* volumetric_tex   = nullptr; // vpt
 };
 
 // Shape data represented as an indexed meshes of elements.

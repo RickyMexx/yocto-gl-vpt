@@ -456,6 +456,7 @@ struct volume {
   std::string        name   = "";
   vec3i              extent = {0, 0, 0};
   std::vector<float> voxels = {};
+  float max_voxel           = 0;
 };
 
 // equality

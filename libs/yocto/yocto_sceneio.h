@@ -161,6 +161,7 @@ struct material {
   scn::texture* opacity_tex      = nullptr;
   scn::texture* normal_tex       = nullptr;
   scn::texture* displacement_tex = nullptr;
+  scn::texture* volumetric_tex   = nullptr; // vpt
 
   // [experimental] properties to drive subdiv and displacement
   int  subdivisions = 2;
