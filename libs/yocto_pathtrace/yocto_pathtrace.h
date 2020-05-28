@@ -95,6 +95,7 @@ ptr::texture*     add_texture(ptr::scene* scene);
 ptr::material*    add_material(ptr::scene* scene);
 ptr::shape*       add_shape(ptr::scene* scene);
 ptr::environment* add_environment(ptr::scene* scene);
+img::volume<float>* add_volume(ptr::scene* scene);
 
 // camera properties
 void set_frame(ptr::camera* camera, const frame3f& frame);
@@ -342,10 +343,14 @@ struct shape {
 
 // Object.
 struct object {
-  frame3f        frame    = identity3x4f;
-  ptr::shape*    shape    = nullptr;
-  ptr::material* material = nullptr;
-  img::volume<float>* volume = nullptr;
+  frame3f             frame        = identity3x4f;
+  ptr::shape*         shape        = nullptr;
+  ptr::material*      material     = nullptr;
+  img::volume<float>* volume       = nullptr;
+  img::volume<float>* density_vol  = nullptr;
+  img::volume<float>* emission_vol = nullptr;
+  vec3f               scale_vol    = {1, 1, 1};
+  vec3f               offset_vol   = {0, 0, 0};
 };
 
 // Environment map.
@@ -370,12 +375,13 @@ struct light {
 // the hierarchy. Animation is also optional, with keyframe data that
 // updates node transformations only if defined.
 struct scene {
-  std::vector<ptr::camera*>      cameras      = {};
-  std::vector<ptr::object*>      objects      = {};
-  std::vector<ptr::shape*>       shapes       = {};
-  std::vector<ptr::material*>    materials    = {};
-  std::vector<ptr::texture*>     textures     = {};
-  std::vector<ptr::environment*> environments = {};
+  std::vector<ptr::camera*>        cameras      = {};
+  std::vector<ptr::object*>        objects      = {};
+  std::vector<ptr::shape*>         shapes       = {};
+  std::vector<ptr::material*>      materials    = {};
+  std::vector<ptr::texture*>       textures     = {};
+  std::vector<ptr::environment*>   environments = {};
+  std::vector<img::volume<float>*> volumes      = {}; // vpt
 
   // computed elements
   std::vector<ptr::light*> lights = {};

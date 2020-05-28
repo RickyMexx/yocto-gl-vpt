@@ -433,9 +433,13 @@ static bool is_delta(const ptr::brdf& brdf) { return !brdf.roughness; }
 // -----------------------------------------------------------------------------
 
 // check if we have a vpt volume // vpt
-static bool has_vptvolume(const ptr::object* object) {
-  return object->volume != nullptr;
-}
+// static bool has_vptvolume(const ptr::object* object) {
+//   return object->volume != nullptr;
+// }
+  static bool has_vptvolume(const ptr::object* object) {
+    return (object->density_vol != nullptr ||
+	    object->emission_vol != nullptr);
+  }
 
 // check if we have a vpt texture // vpt
 static bool has_vpttexture(const ptr::object* object) {
@@ -452,12 +456,15 @@ struct vsdf {
   vec3f density    = {0, 0, 0};
   vec3f scatter    = {0, 0, 0};
   float anisotropy = 0;
-  // homogeneous volume properties
+  // heterogeneous volume properties
   bool  htvolume   = false;
   float max_density = 0.0f;
   frame3f oframe = identity3x4f;
   img::volume<float> *ovol;
   vec3f scale = {1.0, 1.0, 1.0};
+  // new heterogeneous volume properties
+  // object contains density, emission, frame, scale, offset etc
+  const ptr::object* object;
 };
 
 // evaluate volume
@@ -482,32 +489,7 @@ static vsdf eval_vsdf(const ptr::object* object, int element, const vec2f& uv, c
   // If we are dealing with a real volume we look into its voxels // vpt
   if(has_vptvolume(object)) {
     vsdf.htvolume = true;
-    auto vol = object->volume;
-
-    vsdf.max_density = vol->max_voxel * 10;
-    vsdf.oframe = object->frame;
-    vsdf.ovol = vol;
-
-
-    // Transformed intersection point
-    auto tp  = transform_point(inverse(object->frame), pos);
-    // Scaling factor
-    // auto s   = 6000.0f;
-    auto s = 1.5f;
-    // Voxels index
-    auto vox_idx = vec3i{(int) abs(tp.x*s), (int) abs(tp.y*s), (int) abs(tp.z*s)};
-
-    //vsdf.scale = vec3f{1.0, 0.5, 1.0};
-    vsdf.scale = vec3f{0.7, 0.7, 0.7};
-
-    //printf("TPS: %d, %d, %d\n", vox_idx.x, vox_idx.y, vox_idx.z);
-    //printf("BDS: %d, %d, %d\n", vol->extent.x, vol->extent.y, vol->extent.z);
-    //printf("voxels %zu\n", object->volume->voxels.size());
-
-    if(check_bounds(vox_idx, vol->extent)) {
-      auto ds = img::lookup_volume(*vol, vox_idx, false);
-      vsdf.density = vec3f{ds, ds, ds};
-    }
+    vsdf.object = object; // link the object to the vsdf structure    
   } else {
     vsdf.density = (transmission && !thin)
                     ? -log(clamp(base, 0.0001f, 1.0f)) / trdepth
@@ -517,13 +499,57 @@ static vsdf eval_vsdf(const ptr::object* object, int element, const vec2f& uv, c
   return vsdf;
 }
 
+  // check for vpt density volume // vpt
+  static bool has_vpt_density(const ptr::object* object) {
+    return object->density_vol != nullptr;
+  }
+
+  // check for vpt emission volume // vpt
+  static bool has_vpt_emission(const ptr::object* object) {
+    return object->emission_vol != nullptr;
+  }
+
+  // evaluate vpt density // vpt
+  static float eval_vpt_density(const vsdf& vsdf, const vec3f& uvw) {
+    auto object = vsdf.object;
+    if (!object->density_vol) return 0.0f;
+    
+    auto oframe   = object->frame;
+    auto vol      = object->density_vol;
+    auto scale    = object->scale_vol;
+    auto offset   = object->offset_vol;
+
+    auto uvl = transform_point(inverse(oframe), uvw) + offset;
+    return eval_volume(*vol, uvl * scale, false, true, true);
+  }
+
+  // evaluate vpt emission // vpt
+  static float eval_vpt_emission(const vsdf& vsdf, const vec3f& uvw) {
+    auto object = vsdf.object;
+    if (!object->emission_vol) return 0.0f;
+
+    auto oframe   = object->frame;
+    auto vol      = object->emission_vol;
+    auto scale    = object->scale_vol;
+    auto offset   = object->offset_vol;
+
+    auto uvl = transform_point(inverse(oframe), uvw) + offset;
+    return eval_volume(*vol, uvl * scale, false, true, true);
+  }
+
   /**
    * Delta tracking implementation based on PBRT Book (chap. Light Transport II: Volume Rendering)
    */
   static std::pair<float, float> delta_tracking(vsdf& vsdf, float max_distance, float rn,
 						float eps, const ray3f& ray) {
     // Precompute values for Monte Carlo sampling on img::volume<float>
-    float imax_density = 1.0f / vsdf.max_density;
+    auto object      = vsdf.object;
+    auto density     = object->density_vol;
+    auto emission    = object->emission_vol;
+    auto max_density = density->max_voxel * 10;
+
+    
+    float imax_density = 1.0f / max_density;
     float sigma_t = 1.0f;
     // Sample distance in the volume
     float t = - log(1.0 - eps) * imax_density / sigma_t;
@@ -532,8 +558,9 @@ static vsdf eval_vsdf(const ptr::object* object, int element, const vec2f& uv, c
       // intersection out of volume bounds
       return {max_distance, 1.0f};
     }
-    auto local_ipoint = transform_point(inverse(vsdf.oframe), ray.o + t * ray.d);
-    float vdensity = eval_volume(*vsdf.ovol, local_ipoint * vsdf.scale, false, true, true) * 10;
+    // auto local_ipoint = transform_point(inverse(vsdf.oframe), ray.o + t * ray.d);
+    // float vdensity = eval_volume(*vsdf.ovol, local_ipoint * vsdf.scale, false, true, true) * 10;
+    auto vdensity = eval_vpt_density(vsdf, ray.o + t * ray.d) * 10;
     vsdf.density = vec3f{vdensity, vdensity, vdensity};
 
     // if (vdensity == 0.0f) {
@@ -553,40 +580,7 @@ static vsdf eval_vsdf(const ptr::object* object, int element, const vec2f& uv, c
     }
     return {t, 1.0};    
   }
-
-// static std::pair<float, float> delta_tracking(vsdf& vsdf, float max_distance, float rn, float eps, ray3f& ray) {
-//   /*
-//     Implementatiom based on PBRT and Production Volume Rendering paper, pp. 13-15 
-//     (https://graphics.pixar.com/library/ProductionVolumeRendering/paper.pdf)
-//   */
-
-//   auto o = ray.o;
-//   auto d = ray.d;
   
-//   // Max density inside the volume
-//   float sigma_bar = 1.0;
-  
-//   // Sampled distance
-//   auto t = -log(1.0 - rn) / sigma_bar;
-  
-//   // Exiting if out of the volume
-//   if(t > max_distance) {
-//     return {max_distance, 1.0};
-//   }
-
-//   float sigma_t = vsdf.density[0];
-//   float sigma_n = sigma_bar - sigma_t;
-//   float check   = 1 - sigma_n / sigma_bar;
-
-//   // Hitting a particle
-//   if(eps < check) {
-//     return {t, 1.0 - sigma_t / sigma_bar};
-//   }
-
-//   return {t, 1.0};
-// }
-
-
 // check if we have a volume
 static bool has_volume(const ptr::object* object) {
   return !object->material->thin && object->material->transmission;
@@ -1401,6 +1395,8 @@ static vec4f trace_path(const ptr::scene* scene, const ray3f& ray_,
       
       if(!vsdf.htvolume || particle) {      
         //radiance = weight * eval_volemission(vsdf, outgoing);
+	if (has_vpt_emission(vsdf.object)) 
+	  radiance = weight * eval_vpt_emission(vsdf, position);
 	
 	if (rand1f(rng) < 0.5f) {
 	  incoming = sample_scattering(vsdf, outgoing, rand1f(rng), rand2f(rng));
@@ -1993,6 +1989,9 @@ ptr::environment* add_environment(ptr::scene* scene) {
 ptr::light* add_light(ptr::scene* scene) {
   return scene->lights.emplace_back(new light{});
 }
+  img::volume<float>* add_volume(ptr::scene* scene) { // vpt
+    return scene->volumes.emplace_back(new img::volume<float>{});
+  }
 
 // Set cameras
 void set_frame(ptr::camera* camera, const frame3f& frame) {

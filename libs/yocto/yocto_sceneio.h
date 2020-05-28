@@ -219,13 +219,17 @@ struct instance {
 // Object.
 struct object {
   // object data
-  std::string    name     = "";
-  frame3f        frame    = identity3x4f;
-  scn::shape*    shape    = nullptr;
-  scn::material* material = nullptr;
-  scn::instance* instance = nullptr;
-  scn::subdiv*   subdiv   = nullptr;
-  img::volume<float>* volume = nullptr; // vpt
+  std::string         name     = "";
+  frame3f             frame    = identity3x4f;
+  scn::shape*         shape    = nullptr;
+  scn::material*      material = nullptr;
+  scn::instance*      instance = nullptr;
+  scn::subdiv*        subdiv   = nullptr;
+  img::volume<float>* volume = nullptr;         // vpt
+  img::volume<float>* density_vol = nullptr;    // vpt
+  img::volume<float>* emission_vol = nullptr;   // vpt
+  vec3f               scale_vol = {1, 1, 1};    // vpt
+  vec3f               offset_vol = {0, 0, 0}; // vpt
 };
 
 // Environment map.
@@ -245,15 +249,15 @@ struct environment {
 // updates node transformations only if defined.
 struct model {
   // scene elements
-  std::vector<scn::camera*>      cameras      = {};
-  std::vector<scn::object*>      objects      = {};
-  std::vector<scn::environment*> environments = {};
-  std::vector<scn::shape*>       shapes       = {};
-  std::vector<scn::subdiv*>      subdivs      = {};
-  std::vector<img::volume<float>*> volumes    = {}; // vpt
-  std::vector<scn::texture*>     textures     = {};
-  std::vector<scn::material*>    materials    = {};
-  std::vector<scn::instance*>    instances    = {};
+  std::vector<scn::camera*>        cameras      = {};
+  std::vector<scn::object*>        objects      = {};
+  std::vector<scn::environment*>   environments = {};
+  std::vector<scn::shape*>         shapes       = {};
+  std::vector<scn::subdiv*>        subdivs      = {};
+  std::vector<scn::texture*>       textures     = {};
+  std::vector<scn::material*>      materials    = {};
+  std::vector<scn::instance*>      instances    = {};
+  std::vector<img::volume<float>*> volumes      = {}; // vpt
 
   // additional information
   std::string name      = "";

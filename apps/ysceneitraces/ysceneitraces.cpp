@@ -188,6 +188,16 @@ void init_scene(ptr::scene* scene, sio::model* ioscene, ptr::camera*& camera,
     subdiv_map[iosubdiv] = subdiv;
   }
 
+  auto volume_map     = std::unordered_map<img::volume<float>*, img::volume<float>*>{}; // vpt
+  volume_map[nullptr] = nullptr;
+  for (auto iovolume : ioscene->volumes) {
+    if (print_progress)
+      print_progress("convert volume", progress.x++, progress.y);
+    auto volume = add_volume(scene);
+    *volume = *iovolume;
+    volume_map[iovolume] = volume;
+  }
+
   for (auto ioobject : ioscene->objects) {
     if (print_progress)
       print_progress("convert object", progress.x++, progress.y);
@@ -209,6 +219,14 @@ void init_scene(ptr::scene* scene, sio::model* ioscene, ptr::camera*& camera,
 	  *volcopy = *ioobject->volume;
 	  object->volume = volcopy;
 	}
+	if (ioobject->density_vol) { // vpt
+	  object->density_vol = volume_map[ioobject->density_vol];
+	}
+	if (ioobject->emission_vol) { // vpt
+	  object->emission_vol = volume_map[ioobject->emission_vol];
+	}
+	object->scale_vol = ioobject->scale_vol;   // vpt
+	object->offset_vol = ioobject->offset_vol; // vpt
         set_material(object, material_map.at(ioobject->material));
       }
     } else {
@@ -228,6 +246,14 @@ void init_scene(ptr::scene* scene, sio::model* ioscene, ptr::camera*& camera,
 	*volcopy = *ioobject->volume;
 	object->volume = volcopy;
       }
+      if (ioobject->density_vol) { // vpt
+	object->density_vol = volume_map[ioobject->density_vol];
+      }
+      if (ioobject->emission_vol) { // vpt
+	object->emission_vol = volume_map[ioobject->emission_vol];
+      }
+      object->scale_vol = ioobject->scale_vol;   // vpt
+      object->offset_vol = ioobject->offset_vol; // vpt
       set_material(object, material_map.at(ioobject->material));
     }
   }
