@@ -38,6 +38,7 @@
 /bin/*
 /build/*
 /out/*
+/tests/*
 
 # vscode
 /.vscode/*
