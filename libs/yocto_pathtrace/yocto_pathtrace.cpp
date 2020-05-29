@@ -518,9 +518,10 @@ static vsdf eval_vsdf(const ptr::object* object, int element, const vec2f& uv, c
     auto vol      = object->density_vol;
     auto scale    = object->scale_vol;
     auto offset   = object->offset_vol;
+    auto inv_max  = 1.f / vol->max_voxel;
 
     auto uvl = transform_point(inverse(oframe), uvw) + offset;
-    return eval_volume(*vol, uvl * scale, false, true, true);
+    return eval_volume(*vol, uvl * scale, false, true, true) * inv_max;
   }
 
   // evaluate vpt emission // vpt
@@ -532,9 +533,10 @@ static vsdf eval_vsdf(const ptr::object* object, int element, const vec2f& uv, c
     auto vol      = object->emission_vol;
     auto scale    = object->scale_vol;
     auto offset   = object->offset_vol;
+    auto inv_max  = 1.f / vol->max_voxel;
 
     auto uvl = transform_point(inverse(oframe), uvw) + offset;
-    return eval_volume(*vol, uvl * scale, false, true, true);
+    return eval_volume(*vol, uvl * scale, false, true, true) * inv_max;
   }
 
   /**
@@ -546,10 +548,8 @@ static vsdf eval_vsdf(const ptr::object* object, int element, const vec2f& uv, c
     auto object      = vsdf.object;
     auto density     = object->density_vol;
     auto emission    = object->emission_vol;
-    auto max_density = density->max_voxel * 10;
-
+    auto imax_density = 1.0f / (density->max_voxel * 20);
     
-    float imax_density = 1.0f / max_density;
     float sigma_t = 1.0f;
     // Sample distance in the volume
     float t = - log(1.0 - eps) * imax_density / sigma_t;
@@ -560,7 +560,7 @@ static vsdf eval_vsdf(const ptr::object* object, int element, const vec2f& uv, c
     }
     // auto local_ipoint = transform_point(inverse(vsdf.oframe), ray.o + t * ray.d);
     // float vdensity = eval_volume(*vsdf.ovol, local_ipoint * vsdf.scale, false, true, true) * 10;
-    auto vdensity = eval_vpt_density(vsdf, ray.o + t * ray.d) * 10;
+    auto vdensity = eval_vpt_density(vsdf, ray.o + t * ray.d) * 20;
     vsdf.density = vec3f{vdensity, vdensity, vdensity};
 
     // if (vdensity == 0.0f) {
@@ -569,7 +569,7 @@ static vsdf eval_vsdf(const ptr::object* object, int element, const vec2f& uv, c
     //   return {t, 1.0 - vdensity * imax_density};
     // }
     
-    if (vdensity * imax_density > rn) {
+    if (vdensity > rn) {
       // return transmittance
       //printf("vdensity : %f\tcorr_density : %f\n", vdensity, vdensity * imax_density);
       // Russian roulette based on albedo
@@ -1395,8 +1395,10 @@ static vec4f trace_path(const ptr::scene* scene, const ray3f& ray_,
       
       if(!vsdf.htvolume || particle) {      
         //radiance = weight * eval_volemission(vsdf, outgoing);
-	if (has_vpt_emission(vsdf.object)) 
-	  radiance = weight * eval_vpt_emission(vsdf, position);
+	if (has_vpt_emission(vsdf.object)) {
+	  auto volemission = eval_vpt_emission(vsdf, position);
+	  radiance += weight * math::blackbody_to_rgb(volemission * 40000);
+	}
 	
 	if (rand1f(rng) < 0.5f) {
 	  incoming = sample_scattering(vsdf, outgoing, rand1f(rng), rand2f(rng));
