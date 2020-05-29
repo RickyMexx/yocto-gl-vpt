@@ -1366,11 +1366,15 @@ static bool load_json_scene(const std::string& filename, scn::model* scene,
 	if (!get_value(ejs, "offset_vol", offset_vol)) return false;
 	object->offset_vol = offset_vol;
       }
+      if (ejs.contains("density_mult")) { // vpt
+	auto density_mult = 1.0f;
+	if (!get_value(ejs, "density_mult", density_mult)) return false;
+	object->density_mult = density_mult;
+      }      
       if (!get_ref(ejs, "material", object->material, material_map))
         return false;
       if (!get_shape(ejs, "shape", object->shape)) return false;
       if (!get_subdiv(ejs, "subdiv", object->subdiv)) return false;
-      if (!get_volume(ejs, "volume", object->volume)) return false;           // vpt
       if (!get_volume(ejs, "density_vol", object->density_vol)) return false; // vpt
       if (!get_volume(ejs, "emission_vol", object->emission_vol)) return false; // vpt
       if (!get_instance(ejs, "instance", object->instance)) return false;
@@ -1573,7 +1577,6 @@ static bool save_json_scene(const std::string& filename,
     add_opt(ejs, "frame", object->frame, def_object.frame);
     add_ref(ejs, "shape", object->shape);
     add_ref(ejs, "subdiv", object->subdiv);
-    add_ref(ejs, "volume", object->volume); // vpt
     add_ref(ejs, "density_vol", object->density_vol); // vpt
     add_ref(ejs, "emission_vol", object->emission_vol); // vpt
     add_ref(ejs, "material", object->material);

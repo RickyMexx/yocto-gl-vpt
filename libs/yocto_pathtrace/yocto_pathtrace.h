@@ -346,11 +346,11 @@ struct object {
   frame3f             frame        = identity3x4f;
   ptr::shape*         shape        = nullptr;
   ptr::material*      material     = nullptr;
-  img::volume<float>* volume       = nullptr;
-  img::volume<float>* density_vol  = nullptr;
-  img::volume<float>* emission_vol = nullptr;
-  vec3f               scale_vol    = {1, 1, 1};
-  vec3f               offset_vol   = {0, 0, 0};
+  img::volume<float>* density_vol  = nullptr;   // vpt
+  img::volume<float>* emission_vol = nullptr;   // vpt
+  vec3f               scale_vol    = {1, 1, 1}; // vpt
+  vec3f               offset_vol   = {0, 0, 0}; // vpt
+  float               density_mult = 1.0f;      // vpt
 };
 
 // Environment map.

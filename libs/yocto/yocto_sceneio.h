@@ -219,17 +219,17 @@ struct instance {
 // Object.
 struct object {
   // object data
-  std::string         name     = "";
-  frame3f             frame    = identity3x4f;
-  scn::shape*         shape    = nullptr;
-  scn::material*      material = nullptr;
-  scn::instance*      instance = nullptr;
-  scn::subdiv*        subdiv   = nullptr;
-  img::volume<float>* volume = nullptr;         // vpt
-  img::volume<float>* density_vol = nullptr;    // vpt
+  std::string         name         = "";
+  frame3f             frame        = identity3x4f;
+  scn::shape*         shape        = nullptr;
+  scn::material*      material     = nullptr;
+  scn::instance*      instance     = nullptr;
+  scn::subdiv*        subdiv       = nullptr;
+  img::volume<float>* density_vol  = nullptr;   // vpt
   img::volume<float>* emission_vol = nullptr;   // vpt
-  vec3f               scale_vol = {1, 1, 1};    // vpt
-  vec3f               offset_vol = {0, 0, 0}; // vpt
+  vec3f               scale_vol    = {1, 1, 1}; // vpt
+  vec3f               offset_vol   = {0, 0, 0}; // vpt
+  float               density_mult = 1.0f;      // vpt
 };
 
 // Environment map.

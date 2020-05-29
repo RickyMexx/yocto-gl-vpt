@@ -165,19 +165,15 @@ void init_scene(ptr::scene* scene, sio::model* ioscene, ptr::camera*& camera,
               ioobject->material->displacement,
               texture_map.at(ioobject->material->displacement_tex));
         }
-        if(ioobject->volume) { // vpt
-          auto volcopy = new img::volume<float>;
-          *volcopy = *ioobject->volume;
-          object->volume = volcopy;
-        }
 	if (ioobject->density_vol) { // vpt
 	  object->density_vol = volume_map[ioobject->density_vol];
 	}
 	if (ioobject->emission_vol) { // vpt
 	  object->emission_vol = volume_map[ioobject->emission_vol];
 	}
-	object->scale_vol = ioobject->scale_vol;   // vpt
-	object->offset_vol = ioobject->offset_vol; // vpt
+	object->scale_vol    = ioobject->scale_vol;   // vpt
+	object->offset_vol   = ioobject->offset_vol;  // vpt
+	object->density_mult = ioobject->density_mult;// vpt
         set_material(object, material_map.at(ioobject->material));
       }
     } else {
@@ -192,19 +188,15 @@ void init_scene(ptr::scene* scene, sio::model* ioscene, ptr::camera*& camera,
             ioobject->material->displacement,
             texture_map.at(ioobject->material->displacement_tex));
       }
-      if(ioobject->volume) { // vpt
-        auto volcopy = new img::volume<float>;
-        *volcopy = *ioobject->volume;
-        object->volume = volcopy;
-      }
       if (ioobject->density_vol) { // vpt
 	object->density_vol = volume_map[ioobject->density_vol];
       }
       if (ioobject->emission_vol) { // vpt
 	object->emission_vol = volume_map[ioobject->emission_vol];
       }
-      object->scale_vol = ioobject->scale_vol;   // vpt
-      object->offset_vol = ioobject->offset_vol; // vpt
+      object->scale_vol    = ioobject->scale_vol;   // vpt
+      object->offset_vol   = ioobject->offset_vol;  // vpt
+      object->density_mult = ioobject->density_mult;// vpt
       set_material(object, material_map.at(ioobject->material));
     }
   }
