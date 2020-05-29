@@ -104,7 +104,6 @@
         0,
         0
       ],
-      "volume": "smoke2",
       "shape": "sphere",
       "material": "cloud"
     },
@@ -193,8 +192,7 @@
         0.6,
         0.3
       ],
-      "thin": false,
-      "volumetric_tex": "vtex"
+      "thin": false
     },
     "smoke": {
       "transmission": 1,

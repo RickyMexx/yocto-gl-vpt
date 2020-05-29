@@ -720,7 +720,6 @@ void tesselate_subdivs(scn::model* scene, progress_callback progress_cb) {
 
 }  // namespace yocto::sceneio
 
-// Maybe todo something for vpt ?
 
 // -----------------------------------------------------------------------------
 // GENERIC SCENE LOADING
@@ -1341,8 +1340,6 @@ static bool load_json_scene(const std::string& filename, scn::model* scene,
         return false;  // hack fir subd
       if (!get_value(ejs, "smooth", material->smooth))
         return false;  // hack for subd
-      if (!get_stexture(ejs, "volumetric_tex", material->volumetric_tex))
-        return false;  // vpt
       material_map[material->name] = material;
     }
   }
@@ -1565,7 +1562,6 @@ static bool save_json_scene(const std::string& filename,
     add_tex(ejs, "displacement_tex", material->displacement_tex);
     add_opt(ejs, "subdivisions", material->subdivisions, def_material.subdivisions);  // hack for subd
     add_opt(ejs, "smooth", material->smooth, def_material.smooth);  // hack for subd
-    add_tex(ejs, "volumetric_tex", material->volumetric_tex); // vpt
   }
 
   auto def_object = object{};
@@ -1753,7 +1749,6 @@ static bool load_obj_scene(const std::string& filename, scn::model* scene,
     material->opacity_tex      = get_stexture(omat->pbr_opacity_tex);
     material->normal_tex       = get_ctexture(omat->normal_tex);
     material->scattering_tex   = get_ctexture(omat->pbr_volscattering_tex);
-    material->volumetric_tex   = get_ctexture(omat->pbr_volumetric_tex); // vpt
     material_map[omat]         = material;
   }
 
@@ -1905,7 +1900,6 @@ static bool save_obj_scene(const std::string& filename, const scn::model* scene,
     omaterial->pbr_coat_tex         = get_texture(material->coat_tex);
     omaterial->pbr_opacity_tex      = get_texture(material->opacity_tex);
     omaterial->pbr_normal_tex       = get_texture(material->normal_tex);
-    omaterial->pbr_volumetric_tex   = get_texture(material->volumetric_tex); // vpt
     material_map[material]          = omaterial;
   }
 

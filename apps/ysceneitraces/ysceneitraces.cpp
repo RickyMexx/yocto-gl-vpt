@@ -154,7 +154,6 @@ void init_scene(ptr::scene* scene, sio::model* ioscene, ptr::camera*& camera,
     set_scattering(material, iomaterial->scattering, iomaterial->scanisotropy,
         texture_map.at(iomaterial->scattering_tex));
     set_normalmap(material, texture_map.at(iomaterial->normal_tex));
-    set_volumetric(material, texture_map.at(iomaterial->volumetric_tex)); // vpt
     material_map[iomaterial] = material;
   }
 
@@ -214,15 +213,16 @@ void init_scene(ptr::scene* scene, sio::model* ioscene, ptr::camera*& camera,
               ioobject->material->displacement,
               texture_map.at(ioobject->material->displacement_tex));
         }
-	if (ioobject->density_vol) { // vpt
-	  object->density_vol = volume_map[ioobject->density_vol];
-	}
-	if (ioobject->emission_vol) { // vpt
-	  object->emission_vol = volume_map[ioobject->emission_vol];
-	}
-	object->scale_vol    = ioobject->scale_vol;   // vpt
-	object->offset_vol   = ioobject->offset_vol;  // vpt
-	object->density_mult = ioobject->density_mult;// vpt
+        if (ioobject->density_vol) { // vpt
+          object->scale_vol    = ioobject->scale_vol;   // vpt
+          object->offset_vol   = ioobject->offset_vol;  // vpt
+          object->density_mult = ioobject->density_mult;// vpt
+          object->density_vol = volume_map[ioobject->density_vol];
+        }
+        if (ioobject->emission_vol) { // vpt
+          object->emission_vol = volume_map[ioobject->emission_vol];
+        }
+
         set_material(object, material_map.at(ioobject->material));
       }
     } else {
@@ -238,14 +238,14 @@ void init_scene(ptr::scene* scene, sio::model* ioscene, ptr::camera*& camera,
             texture_map.at(ioobject->material->displacement_tex));
       }
       if (ioobject->density_vol) { // vpt
-	object->density_vol = volume_map[ioobject->density_vol];
+	      object->density_vol = volume_map[ioobject->density_vol];
+        object->scale_vol    = ioobject->scale_vol;   // vpt
+        object->offset_vol   = ioobject->offset_vol;  // vpt
+        object->density_mult = ioobject->density_mult;// vpt
       }
       if (ioobject->emission_vol) { // vpt
-	object->emission_vol = volume_map[ioobject->emission_vol];
+	      object->emission_vol = volume_map[ioobject->emission_vol];
       }
-      object->scale_vol    = ioobject->scale_vol;   // vpt
-      object->offset_vol   = ioobject->offset_vol;  // vpt
-      object->density_mult = ioobject->density_mult;// vpt
       set_material(object, material_map.at(ioobject->material));
     }
   }
