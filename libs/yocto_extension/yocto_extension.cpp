@@ -112,7 +112,7 @@ namespace yocto::extension {
     auto offset   = object->offset_vol;
 
     auto uvl = transform_point(inverse(oframe), uvw) + offset;
-    return eval_volume(*vol, uvl * scale, false, true, true) * object->density_mult;
+    return eval_volume(*vol, uvl * scale, true, false, true) * object->density_mult;
   }
 
   float eval_vpt_emission(const vsdf& vsdf, const vec3f& uvw) {
@@ -126,7 +126,7 @@ namespace yocto::extension {
     auto inv_max  = 1.f / vol->max_voxel;
 
     auto uvl = transform_point(inverse(oframe), uvw) + offset;
-    return eval_volume(*vol, uvl * scale, false, true, true) * inv_max;
+    return eval_volume(*vol, uvl * scale, true, false, true) * inv_max;
   }
 
   std::pair<float, float> delta_tracking(vsdf& vsdf, float max_distance, float rn,
@@ -170,6 +170,91 @@ namespace yocto::extension {
     }
     return {t, 1.0};  
   }
+  
+  static int sample_event(float pa, float ps, float pn, float rn) {
+    // https://stackoverflow.com/a/26751752
+    auto weights = vec3f{pa, ps, pn};
+    auto numbers = vec3i{EVENT_ABSORB, EVENT_SCATTER, EVENT_NULL};
+    float sum = 0.0f;
+    for (int i = 0; i < 3; ++i) {
+      sum += weights[i];
+      if(rn < sum) {
+	//printf("weights: pa: %f\tps: %f\tpn: %f\tsum: %i\n", pa, ps, pn, numbers[i]);
+	return numbers[i];
+      }
+    }
+    // Can reach this point only if |weights| < 1 (WRONG)
+    //printf("I should not be here : %f\n", pa + ps + pn);
+    return EVENT_NULL;
+  }
+
+  std::pair<float, vec3f> spectral_MIS(vsdf& vsdf, float max_distance, float rni,
+				       float rn, float eps, const ray3f& ray, int& event) {
+    auto path_contrib = vec3f(1);
+    auto path_pdf     = vec3f(1);
+    auto color_comp   = clamp((int)(rni * 3), 0, 2);
+    auto density_vol  = vsdf.object->density_vol;
+    auto imax_density   = 1.0f / (density_vol->max_voxel * vsdf.object->density_mult);
+    auto t            = -log(1 - eps) * imax_density;
+    if (t >= max_distance) t = max_distance;
+    auto vdensity     = eval_vpt_density(vsdf, ray.o + t * ray.d);
+    auto density      = vec3f{vdensity, vdensity, vdensity};
+    // apply perling noise for albedo
+    // auto albedo       = vec3f{perlin_noise(vec3f{ray.o.x, 0.0, 0.0}),
+    // 			      perlin_noise(vec3f{0.0, ray.o.y, 0.0}),
+    // 			      perlin_noise(vec3f{0.0, 0.0, ray.o.z})};
+    auto albedo = vec3f(0.6);
+    //albedo.x = perlin_noise(ray.o + t * ray.d);
+    vsdf.density      = density;
+
+    auto sigma_t      = density;
+    if (sigma_t.x == 0.0f) {
+      return {t, vec3f(1)};
+    }
+    auto sigma_s      = albedo * sigma_t;
+    auto sigma_a      = sigma_t * (1.0 - albedo[color_comp]);
+    auto sigma_n      = vec3f(density_vol->max_voxel) - sigma_t;
+
+    auto new_pos      = ray.o + t * ray.d; // new ray position
+
+    // printf("sigma_t : [%f %f %f]\tsigma_s : [%f %f %f]\tsigma_a : [%f %f %f]\tsigma_n : [%f %f %f]\n",
+    // 	   sigma_t.x, sigma_t.y, sigma_t.z,
+    // 	   sigma_s.x, sigma_s.y, sigma_s.z,
+    // 	   sigma_a.x, sigma_a.y, sigma_a.z,
+    // 	   sigma_n.x, sigma_n.y, sigma_n.z);
+    
+
+    auto e = sample_event(sigma_a[color_comp] * imax_density,
+    			  sigma_s[color_comp] * imax_density,
+    			  sigma_n[color_comp] * imax_density, rn);
+    // auto e = sample_event(sigma_a[color_comp] / sigma_t[color_comp],
+    // 			  sigma_s[color_comp] / sigma_t[color_comp],
+    // 			  sigma_n[color_comp] / sigma_t[color_comp], rn);
+    auto mu_e = zero3f;
+    switch(e) {
+    case EVENT_NULL:
+      mu_e = sigma_n;
+      break;
+    case EVENT_SCATTER:
+      mu_e = sigma_s;
+      break;
+    case EVENT_ABSORB:
+      mu_e = sigma_a;
+      break;
+    }
+    event = e;
+    path_contrib *= (eval_transmittance(sigma_t, t) * mu_e);
+    path_pdf      = path_contrib;
+    
+    if (e == EVENT_ABSORB) {
+      return {t, path_contrib / mean(path_pdf)};
+    } else if (e == EVENT_SCATTER) {
+      return {t, path_contrib / mean(path_pdf)};
+    }
+    return {t, vec3f(1)};
+  }
+
+  
 
   void gen_volumetric(img::volume<float>* vol, const vec3i& size) {
     if(!vol) return;

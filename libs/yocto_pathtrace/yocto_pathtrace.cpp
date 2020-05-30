@@ -91,6 +91,7 @@ using extension::has_vpt_emission;
 using extension::eval_vpt_density;
 using extension::eval_vpt_emission;
 using extension::delta_tracking;
+using extension::spectral_MIS;
 using extension::vsdf;
 
 }  // namespace yocto::pathtrace
@@ -1194,26 +1195,26 @@ static vec4f trace_path(const ptr::scene* scene, const ray3f& ray_,
     
     auto particle = false;
     auto in_volume = false;
+    auto collision_event = 0;
     if(!volume_stack.empty()) {
       auto &vsdf = volume_stack.back();
       
       // Check whether we are working with a volume
       if(vsdf.htvolume) {
-        auto [dist, w] = delta_tracking(vsdf, intersection.distance, rand1f(rng), rand1f(rng), ray);
-        //auto dist = 1.0f;
-        //auto w = 1.0f;
-        // Check if a particle has been hit
-        particle = w != 1.0;
-	
-	      weight *= w;
-        // if(particle) {
-        //   weight *= w;
-        // } else {
-        //   weight *= w; // w is 1 here, leaving it for correctness tests
-        // }
-
+	/*
+	 * Delta Tracking approach
+	 */
+        // auto [dist, w] = delta_tracking(vsdf, intersection.distance, rand1f(rng), rand1f(rng), ray);
+        // particle = w != 1.0;
+	/*
+	 * Spectral MIS
+	 */
+	auto [dist, w] = spectral_MIS(vsdf, intersection.distance, rand1f(rng),
+				      rand1f(rng), rand1f(rng), ray, collision_event);
+	particle = collision_event != EVENT_NULL;
         in_volume = dist < intersection.distance;
-	      intersection.distance = dist;	
+	intersection.distance = dist;
+	weight *= w;
       } else {
         auto  distance = sample_transmittance(vsdf.density, intersection.distance, rand1f(rng), rand1f(rng));
         weight *= eval_transmittance(vsdf.density, distance) /
@@ -1293,22 +1294,34 @@ static vec4f trace_path(const ptr::scene* scene, const ray3f& ray_,
       if(!vsdf.htvolume || particle) {      
         //radiance = weight * eval_volemission(vsdf, outgoing);
         
-        if (vsdf.htvolume && has_vpt_emission(vsdf.object)) {
-          auto volemission = eval_vpt_emission(vsdf, position);
-          radiance += weight * math::blackbody_to_rgb(volemission * 40000);
-        }
-        
-        if (rand1f(rng) < 0.5f) {
-          incoming = sample_scattering(vsdf, outgoing, rand1f(rng), rand2f(rng));
-        } else {
-          incoming = sample_lights(
-                scene, position, rand1f(rng), rand1f(rng), rand2f(rng));
-        }
-        weight *= eval_scattering(vsdf, outgoing, incoming) /
-          (0.5f * sample_scattering_pdf(vsdf, outgoing, incoming) +
-          0.5f * sample_lights_pdf(scene, position, incoming));
+        // if (vsdf.htvolume && has_vpt_emission(vsdf.object)) {
+        //   auto volemission = eval_vpt_emission(vsdf, position);
+        //   radiance += weight * math::blackbody_to_rgb(volemission * 40000);
+        // }
+	if (collision_event == EVENT_ABSORB) {
+	  auto volemission = zero3f;
+	  if (vsdf.htvolume && has_vpt_emission(vsdf.object)) {
+	    auto vemission = eval_vpt_emission(vsdf, position);
+	    volemission = math::blackbody_to_rgb(vemission * 40000);
+	  }
+	  radiance = weight * volemission;
+	  break;
+	} else if (collision_event == EVENT_SCATTER) {
+	  incoming = sample_scattering(vsdf, outgoing, rand1f(rng), rand2f(rng));
+	}
+	  //  if (rand1f(rng) < 0.5f) {
+	  //     incoming = sample_scattering(vsdf, outgoing, rand1f(rng), rand2f(rng));
+	  //   } else {
+	  //     incoming = sample_lights(
+	  // 			     scene, position, rand1f(rng), rand1f(rng), rand2f(rng));
+	  //   }
+	  //   weight *= eval_scattering(vsdf, outgoing, incoming) /
+	  //     (0.5f * sample_scattering_pdf(vsdf, outgoing, incoming) +
+	  //      0.5f * sample_lights_pdf(scene, position, incoming));
+	  // }
       } else {
-	      bounce -= 1; // do not consider a null-hit particle in the bounces
+	incoming = ray.d;
+	bounce -= 1;
       }
       ray = {position, incoming};
     }
@@ -1323,7 +1336,7 @@ static vec4f trace_path(const ptr::scene* scene, const ray3f& ray_,
       weight *= 1 / rr_prob;
     }
   }
-
+  
   return {radiance, hit ? 1.0f : 0.0f};
 }
 
