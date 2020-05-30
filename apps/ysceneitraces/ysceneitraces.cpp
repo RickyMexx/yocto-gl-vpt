@@ -407,9 +407,9 @@ int main(int argc, const char* argv[]) {
     edited += draw_slider(win, "nbounces", tparams.bounces, 1, 128);
     edited += draw_slider(win, "pratio", tparams.pratio, 1, 64);
     edited += draw_slider(win, "exposure", app->exposure, -5, 5);
-    //auto cam = app->camera->frame;
+    auto cam = app->camera->frame;
     //printf("cam: %f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f\n", cam.x[0], cam.x[1], cam.x[2], cam.y[0], cam.y[1], cam.y[2], cam.z[0], cam.z[1], cam.z[2], cam.o[0], cam.o[1], cam.o[2]);
-    if (edited) reset_display(app);
+    //if (edited) reset_display(app);
   };
   callbacks.uiupdate_cb = [app](gui::window* win, const gui::input& input) {
     if ((input.mouse_left || input.mouse_right) && !input.modifier_alt &&

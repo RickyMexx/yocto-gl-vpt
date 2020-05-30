@@ -1305,7 +1305,7 @@ static vec4f trace_path(const ptr::scene* scene, const ray3f& ray_,
         if(params.vpt == DELTA) {
           if (vsdf.htvolume && has_vpt_emission(vsdf.object)) {
             auto volemission = eval_vpt_emission(vsdf, position);
-            radiance += weight * math::blackbody_to_rgb(volemission * 40000.0f);
+            radiance += weight * math::blackbody_to_rgb(volemission * 40000.0f); 
           }
         } else if (params.vpt == SPMIS) {
           if (collision_event == EVENT_ABSORB) {

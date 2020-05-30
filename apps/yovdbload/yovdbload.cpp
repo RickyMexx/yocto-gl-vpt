@@ -83,17 +83,12 @@ void find_max_bounds(const std::vector<ovdb_voxel> &ovdb_vect,
     min_y = min(min_y, vox.y);
     min_z = min(min_z, vox.z);
   }
-  /*
-  max_x += 1;
-  max_y += 1;
-  max_z += 1;
-  */
   min_x = abs32(min_x);
   min_y = abs32(min_y);
   min_z = abs32(min_z);
-  max_x = max_x + min_x;
-  max_y = max_y + min_y;
-  max_z = max_z + min_z;
+  max_x = max_x + min_x + 1;
+  max_y = max_y + min_y + 1;
+  max_z = max_z + min_z + 1;
 }
 
 void sort_ovdb_vector(std::vector<ovdb_voxel> &ovdb_vect) {
