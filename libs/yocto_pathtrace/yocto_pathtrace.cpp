@@ -520,7 +520,7 @@ static vsdf eval_vsdf(const ptr::object* object, int element, const vec2f& uv, c
     auto offset   = object->offset_vol;
 
     auto uvl = transform_point(inverse(oframe), uvw) + offset;
-    return eval_volume(*vol, uvl * scale, false, true, true) * object->density_mult;
+    return eval_volume(*vol, uvl * scale, false, false, true) * object->density_mult;
   }
 
   // evaluate vpt emission // vpt
@@ -535,7 +535,7 @@ static vsdf eval_vsdf(const ptr::object* object, int element, const vec2f& uv, c
     auto inv_max  = 1.f / vol->max_voxel;
 
     auto uvl = transform_point(inverse(oframe), uvw) + offset;
-    return eval_volume(*vol, uvl * scale, false, true, true) * inv_max;
+    return eval_volume(*vol, uvl * scale, false, false, false) * inv_max;
   }
 
   /**
@@ -550,9 +550,9 @@ static vsdf eval_vsdf(const ptr::object* object, int element, const vec2f& uv, c
     auto max_density = density->max_voxel * object->density_mult;
     auto imax_density = 1.0f / max_density;
     
-    float sigma_t = 1.0f;
+    float sigma_t = max_density;
     // Sample distance in the volume
-    float t = - log(1.0 - eps) * imax_density / sigma_t;
+    float t = - log(1.0 - eps) / sigma_t;
     // float t = - log(1.0 - eps) / 20.f;
     if (t >= max_distance) {
       // intersection out of volume bounds
@@ -580,6 +580,39 @@ static vsdf eval_vsdf(const ptr::object* object, int element, const vec2f& uv, c
     }
     return {t, 1.0};    
   }
+
+  static std::tuple<float, vec3f> eval_delta_tracking(vsdf& vsdf, float max_distance, float rn,
+						      float eps, const ray3f& ray) {
+    auto weight      = vec3f(1);
+    // Precompute values for Monte Carlo sampling on img::volume<float>
+    auto object      = vsdf.object;
+    auto density     = object->density_vol;
+    auto max_density = density->max_voxel * object->density_mult;
+    auto imax_density= 1.0f / max_density;
+    // Compute sigma_sign as maximum density of the density volume
+    auto sigma_sign = max_density;
+    auto t          = - log(1.0 - rn) * imax_density / sigma_sign;
+    if (t >= max_distance) {
+      return {max_distance, weight};
+    }    
+    auto uvw        = ray.o + t * ray.d;
+    auto sigma_t    = eval_vpt_density(vsdf, uvw);
+    vsdf.density    = vec3f{sigma_t, sigma_t, sigma_t};
+    if (sigma_t * imax_density > eps) {
+      if (eps > vsdf.scatter.x) {
+	return {t, zero3f};
+      }
+      return {t, weight - (sigma_t * imax_density)};
+    }
+    return {t, weight};
+  }
+
+  static std::tuple<float, float> spectral_tracking(vsdf& vsdf, float max_distance, float rn,
+						    float eps, const ray3f& ray) {
+    return {1.0, 1.0};
+  }
+
+  
   
 // check if we have a volume
 static bool has_volume(const ptr::object* object) {
@@ -1304,20 +1337,14 @@ static vec4f trace_path(const ptr::scene* scene, const ray3f& ray_,
       
       // Check whether we are working with a volume
       if(vsdf.htvolume) {
-        auto [dist, w] = delta_tracking(vsdf, intersection.distance, rand1f(rng), rand1f(rng), ray);
-
+        auto [t, w] = delta_tracking(vsdf, intersection.distance, rand1f(rng), rand1f(rng), ray);
+	//auto [t, w] = eval_delta_tracking(vsdf, intersection.distance, rand1f(rng), rand1f(rng), ray);
         // Check if a particle has been hit
-        particle = w != 1.0;
-	
-	weight *= w;
-        // if(particle) {
-        //   weight *= w;
-        // } else {
-        //   weight *= w; // w is 1 here, leaving it for correctness tests
-        // }
-
-        in_volume = dist < intersection.distance;
-	intersection.distance = dist;	
+	particle = w != 1.0;
+        //particle = w != vec3f{1.0, 1.0, 1.0};	
+	weight *= w;	
+        in_volume = t < intersection.distance;
+	intersection.distance = t;
       } else {
         auto  distance = sample_transmittance(vsdf.density, intersection.distance, rand1f(rng), rand1f(rng));
         weight *= eval_transmittance(vsdf.density, distance) /
@@ -1354,8 +1381,9 @@ static vec4f trace_path(const ptr::scene* scene, const ray3f& ray_,
       // accumulate emission
       radiance += weight * eval_emission(emission, normal, outgoing);
 
+
       // next direction
-      auto incoming = zero3f;
+      auto incoming = ray.d;
       if (!is_delta(brdf)) {
         if (rand1f(rng) < 0.5f) {
           incoming = sample_brdfcos(
