@@ -37,6 +37,7 @@
 
 #include <yocto/yocto_image.h>
 #include <yocto/yocto_math.h>
+#include <yocto_pathtrace/yocto_pathtrace.h>
 
 #include <atomic>
 #include <future>
@@ -50,6 +51,8 @@ namespace yocto::extension {
 // Namespace aliases
 namespace ext = yocto::extension;
 namespace img = yocto::image;
+namespace trace = pathtrace::ptr;
+
 
 // Math defitions
 using math::bbox3f;
@@ -68,13 +71,60 @@ using math::vec4i;
 using math::zero2f;
 using math::zero3f;
 
-}  // namespace yocto::pathtrace
+using trace::object;
+
+} 
+
+// -----------------------------------------------------------------------------
+// RENDERING DATA
+// -----------------------------------------------------------------------------
+namespace yocto::extension {
+
+  // vsdf 
+  struct vsdf {
+    vec3f density    = {0, 0, 0};
+    vec3f scatter    = {0, 0, 0};
+    float anisotropy = 0;
+    // heterogeneous volume properties
+    bool  htvolume   = false;
+    vec3f scale = {1.0, 1.0, 1.0};
+    // new heterogeneous volume properties
+    // object contains density, emission, frame, scale, offset etc
+    const trace::object* object = nullptr;
+  };
+
+}
 
 // -----------------------------------------------------------------------------
 // HIGH LEVEL API
 // -----------------------------------------------------------------------------
 namespace yocto::extension {
 
-}  // namespace yocto::pathtrace
+  // check if we have a vpt volume // vpt 
+  bool has_vptvolume(const object* object);
+  
+  // check if the indices are inside the bounds // vpt
+  bool check_bounds(vec3i vox_idx, vec3i bounds);
+
+  // check for vpt density volume // vpt
+  bool has_vpt_density(const object* object);
+
+  // check for vpt emission volume // vpt
+  bool has_vpt_emission(const object* object);
+
+  // evaluate vpt density // vpt
+  float eval_vpt_density(const vsdf& vsdf, const vec3f& uvw);
+
+  // evaluate vpt emission // vpt
+  float eval_vpt_emission(const vsdf& vsdf, const vec3f& uvw);
+    
+  // Delta tracking implementation based on PBRT Book (chap. Light Transport II: Volume Rendering)
+  std::pair<float, float> delta_tracking(vsdf& vsdf, float max_distance, float rn,
+						float eps, const ray3f& ray);
+  
+  // takes as input a volume ptr and fills it with a perlin volumetric texture // vpt
+  void gen_volumetric(img::volume<float>* vol, const vec3i& size);
+
+}
 
 #endif
