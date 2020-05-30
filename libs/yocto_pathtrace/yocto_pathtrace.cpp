@@ -446,7 +446,7 @@ static brdf eval_brdf(const ptr::object* object, int element, const vec2f& uv,
 static bool is_delta(const ptr::brdf& brdf) { return !brdf.roughness; }
 
 // evaluate volume
-static vsdf eval_vsdf(const ptr::object* object, int element, const vec2f& uv, const vec3f& pos) {
+static vsdf eval_vsdf(const ptr::object* object, int element, const vec2f& uv) {
   auto material = object->material;
   // initialize factors
   auto texcoord = eval_texcoord(object, element, uv);
@@ -1198,23 +1198,25 @@ static vec4f trace_path(const ptr::scene* scene, const ray3f& ray_,
     auto collision_event = 0;
     if(!volume_stack.empty()) {
       auto &vsdf = volume_stack.back();
-      
+     
       // Check whether we are working with a volume
       if(vsdf.htvolume) {
-	/*
-	 * Delta Tracking approach
-	 */
-        // auto [dist, w] = delta_tracking(vsdf, intersection.distance, rand1f(rng), rand1f(rng), ray);
-        // particle = w != 1.0;
-	/*
-	 * Spectral MIS
-	 */
-	auto [dist, w] = spectral_MIS(vsdf, intersection.distance, rand1f(rng),
-				      rand1f(rng), rand1f(rng), ray, collision_event);
-	particle = collision_event != EVENT_NULL;
+        auto dist = 0.0f;
+        auto w = vec3f{1.0f};
+
+        if(params.vpt == DELTA) {
+          std::tie(dist, w) = delta_tracking(vsdf, intersection.distance,
+                                      rand1f(rng), rand1f(rng), ray);
+          particle = w != vec3f{1.0f};
+        } else if (params.vpt == SPMIS) {
+          std::tie(dist, w) = spectral_MIS(vsdf, intersection.distance, rand1f(rng),
+                                    rand1f(rng), rand1f(rng), ray, collision_event);
+          particle = collision_event != EVENT_NULL;
+        }
+
         in_volume = dist < intersection.distance;
-	intersection.distance = dist;
-	weight *= w;
+        intersection.distance = dist;
+        weight *= w;
       } else {
         auto  distance = sample_transmittance(vsdf.density, intersection.distance, rand1f(rng), rand1f(rng));
         weight *= eval_transmittance(vsdf.density, distance) /
@@ -1224,9 +1226,6 @@ static vec4f trace_path(const ptr::scene* scene, const ray3f& ray_,
         intersection.distance = distance;
       }
     } 
-   
-
-    auto vol_pos = ray.o + ray.d * intersection.distance;
 
     // switch between surface and volume
     if (!in_volume) {
@@ -1275,7 +1274,7 @@ static vec4f trace_path(const ptr::scene* scene, const ray3f& ray_,
       if ((has_volume(object) || has_vptvolume(object)) 
         &&  dot(normal, outgoing) * dot(normal, incoming) < 0) {
         if (volume_stack.empty()) {
-          auto volpoint = eval_vsdf(object, element, uv, vol_pos);
+          auto volpoint = eval_vsdf(object, element, uv);
           volume_stack.push_back(volpoint);
         } else {
           volume_stack.pop_back();
@@ -1292,36 +1291,38 @@ static vec4f trace_path(const ptr::scene* scene, const ray3f& ray_,
       hit = true;
       
       if(!vsdf.htvolume || particle) {      
+
+        if(params.vpt == DELTA) {
+          if (vsdf.htvolume && has_vpt_emission(vsdf.object)) {
+            auto volemission = eval_vpt_emission(vsdf, position);
+            radiance += weight * math::blackbody_to_rgb(volemission * 40000.0f);
+          }
+        } else if (params.vpt == SPMIS) {
+          if (collision_event == EVENT_ABSORB) {
+            auto volemission = zero3f;
+            if (vsdf.htvolume && has_vpt_emission(vsdf.object)) {
+              auto vemission = eval_vpt_emission(vsdf, position);
+              volemission = math::blackbody_to_rgb(vemission * 40000);
+            }
+            radiance = weight * volemission;
+            break;
+          } else if (collision_event == EVENT_SCATTER) {
+            incoming = sample_scattering(vsdf, outgoing, rand1f(rng), rand2f(rng));
+          }
+        }
         //radiance = weight * eval_volemission(vsdf, outgoing);
         
-        // if (vsdf.htvolume && has_vpt_emission(vsdf.object)) {
-        //   auto volemission = eval_vpt_emission(vsdf, position);
-        //   radiance += weight * math::blackbody_to_rgb(volemission * 40000);
-        // }
-	if (collision_event == EVENT_ABSORB) {
-	  auto volemission = zero3f;
-	  if (vsdf.htvolume && has_vpt_emission(vsdf.object)) {
-	    auto vemission = eval_vpt_emission(vsdf, position);
-	    volemission = math::blackbody_to_rgb(vemission * 40000);
-	  }
-	  radiance = weight * volemission;
-	  break;
-	} else if (collision_event == EVENT_SCATTER) {
-	  incoming = sample_scattering(vsdf, outgoing, rand1f(rng), rand2f(rng));
-	}
-	  //  if (rand1f(rng) < 0.5f) {
-	  //     incoming = sample_scattering(vsdf, outgoing, rand1f(rng), rand2f(rng));
-	  //   } else {
-	  //     incoming = sample_lights(
-	  // 			     scene, position, rand1f(rng), rand1f(rng), rand2f(rng));
-	  //   }
-	  //   weight *= eval_scattering(vsdf, outgoing, incoming) /
-	  //     (0.5f * sample_scattering_pdf(vsdf, outgoing, incoming) +
-	  //      0.5f * sample_lights_pdf(scene, position, incoming));
-	  // }
+        if (rand1f(rng) < 0.5f) {
+          incoming = sample_scattering(vsdf, outgoing, rand1f(rng), rand2f(rng));
+        } else {
+          incoming = sample_lights(
+                scene, position, rand1f(rng), rand1f(rng), rand2f(rng));
+        }
+        weight *= eval_scattering(vsdf, outgoing, incoming) /
+                  (0.5f * sample_scattering_pdf(vsdf, outgoing, incoming) +
+                  0.5f * sample_lights_pdf(scene, position, incoming));
       } else {
-	incoming = ray.d;
-	bounce -= 1;
+	      bounce -= 1;
       }
       ray = {position, incoming};
     }

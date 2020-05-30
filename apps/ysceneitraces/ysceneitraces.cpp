@@ -335,13 +335,11 @@ int main(int argc, const char* argv[]) {
   // parse command line
   auto cli = cli::make_cli("yscnitraces", "progressive path tracing");
   add_option(cli, "--camera", camera_name, "Camera name.");
-  add_option(
-      cli, "--resolution,-r", app->params.resolution, "Image resolution.");
+  add_option(cli, "--resolution,-r", app->params.resolution, "Image resolution.");
   add_option(cli, "--samples,-s", app->params.samples, "Number of samples.");
-  add_option(cli, "--shader,-t", app->params.shader, "Tracer type.",
-      ptr::shader_names);
-  add_option(
-      cli, "--bounces,-b", app->params.bounces, "Maximum number of bounces.");
+  add_option(cli, "--shader,-t", app->params.shader, "Tracer type.", ptr::shader_names);
+  add_option(cli, "--vpt,-v", app->params.vpt, "Volumetric Path Tracing algorithm."); // vpt
+  add_option(cli, "--bounces,-b", app->params.bounces, "Maximum number of bounces.");
   add_option(cli, "--clamp", app->params.clamp, "Final pixel clamping.");
   add_option(cli, "--skyenv/--no-skyenv", add_skyenv, "Add sky envmap");
   add_option(cli, "--output,-o", app->imagename, "Image output");
@@ -409,6 +407,8 @@ int main(int argc, const char* argv[]) {
     edited += draw_slider(win, "nbounces", tparams.bounces, 1, 128);
     edited += draw_slider(win, "pratio", tparams.pratio, 1, 64);
     edited += draw_slider(win, "exposure", app->exposure, -5, 5);
+    //auto cam = app->camera->frame;
+    //printf("cam: %f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f\n", cam.x[0], cam.x[1], cam.x[2], cam.y[0], cam.y[1], cam.y[2], cam.z[0], cam.z[1], cam.z[2], cam.o[0], cam.o[1], cam.o[2]);
     if (edited) reset_display(app);
   };
   callbacks.uiupdate_cb = [app](gui::window* win, const gui::input& input) {

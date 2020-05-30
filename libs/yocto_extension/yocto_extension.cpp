@@ -129,7 +129,7 @@ namespace yocto::extension {
     return eval_volume(*vol, uvl * scale, true, false, true) * inv_max;
   }
 
-  std::pair<float, float> delta_tracking(vsdf& vsdf, float max_distance, float rn,
+  std::pair<float, vec3f> delta_tracking(vsdf& vsdf, float max_distance, float rn,
 						float eps, const ray3f& ray) {
     // Precompute values for Monte Carlo sampling on img::volume<float>
     auto object      = vsdf.object;
@@ -137,6 +137,8 @@ namespace yocto::extension {
     auto emission    = object->emission_vol;
     auto max_density = density->max_voxel * object->density_mult;
     auto imax_density = 1.0f / max_density;
+
+    auto weight = vec3f{1.0f};
     
 
     float sigma_t = 1.0f;
@@ -145,7 +147,7 @@ namespace yocto::extension {
     // float t = - log(1.0 - eps) / 20.f;
     if (t >= max_distance) {
       // intersection out of volume bounds
-      return {max_distance, 1.0f};
+      return {max_distance, weight};
     }
     // auto local_ipoint = transform_point(inverse(vsdf.oframe), ray.o + t * ray.d);
     // float vdensity = eval_volume(*vsdf.ovol, local_ipoint * vsdf.scale, false, true, true) * 10;
@@ -164,11 +166,12 @@ namespace yocto::extension {
       //printf("vdensity : %f\tcorr_density : %f\n", vdensity, vdensity * imax_density);
       // Russian roulette based on albedo
       if (vsdf.scatter.x < rn) {
-	return {t, 0.0};      
+	      return {t, zero3f};      
       }
-      return {t, 1.0 - max(0.0f, vdensity * imax_density)};
+      auto w_val = 1.0 - max(0.0f, vdensity * imax_density);
+      return {t, weight * w_val};
     }
-    return {t, 1.0};  
+    return {t, weight};  
   }
   
   static int sample_event(float pa, float ps, float pn, float rn) {

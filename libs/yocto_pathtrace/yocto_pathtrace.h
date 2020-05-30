@@ -172,6 +172,11 @@ enum struct shader_type {
 // Default trace seed
 const auto default_seed = 961748941ull;
 
+// Volumetric path tracing algorithms // vpt
+
+#define DELTA  "delta"
+#define SPMIS  "spectral"
+
 // Options for trace functions
 struct trace_params {
   int         resolution = 720;
@@ -182,6 +187,7 @@ struct trace_params {
   uint64_t    seed       = default_seed;
   bool        noparallel = false;
   int         pratio     = 8;
+  std::string vpt        = DELTA;
 };
 
 const auto shader_names = std::vector<std::string>{

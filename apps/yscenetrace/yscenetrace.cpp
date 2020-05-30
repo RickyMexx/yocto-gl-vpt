@@ -234,8 +234,8 @@ int main(int argc, const char* argv[]) {
   add_option(cli, "--camera", camera_name, "Camera name.");
   add_option(cli, "--resolution,-r", params.resolution, "Image resolution.");
   add_option(cli, "--samples,-s", params.samples, "Number of samples.");
-  add_option(
-      cli, "--shader,-t", params.shader, "Shader type.", ptr::shader_names);
+  add_option(cli, "--shader,-t", params.shader, "Shader type.", ptr::shader_names);
+  add_option(cli, "--vpt,-v", params.vpt, "Volumetric Path Tracing algorithm."); // vpt
   add_option(cli, "--bounces,-b", params.bounces, "Maximum number of bounces.");
   add_option(cli, "--clamp", params.clamp, "Final pixel clamping.");
   add_option(cli, "--save-batch", save_batch, "Save images progressively");
