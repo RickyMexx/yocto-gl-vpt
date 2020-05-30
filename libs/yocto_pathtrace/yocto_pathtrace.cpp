@@ -1289,9 +1289,19 @@ static vec4f trace_path(const ptr::scene* scene, const ray3f& ray_,
       auto  position = ray.o + ray.d * intersection.distance;
       auto& vsdf     = volume_stack.back();
       hit = true;
-      
-      if(!vsdf.htvolume || particle) {      
 
+      //radiance = weight * eval_volemission(vsdf, outgoing);
+      if (!vsdf.htvolume) {
+        if (rand1f(rng) < 0.5f) {
+          incoming = sample_scattering(vsdf, outgoing, rand1f(rng), rand2f(rng));
+        } else {
+          incoming = sample_lights(
+                scene, position, rand1f(rng), rand1f(rng), rand2f(rng));
+        }
+        weight *= eval_scattering(vsdf, outgoing, incoming) /
+                  (0.5f * sample_scattering_pdf(vsdf, outgoing, incoming) +
+                  0.5f * sample_lights_pdf(scene, position, incoming));
+      } else if(particle) {      
         if(params.vpt == DELTA) {
           if (vsdf.htvolume && has_vpt_emission(vsdf.object)) {
             auto volemission = eval_vpt_emission(vsdf, position);
@@ -1310,17 +1320,6 @@ static vec4f trace_path(const ptr::scene* scene, const ray3f& ray_,
             incoming = sample_scattering(vsdf, outgoing, rand1f(rng), rand2f(rng));
           }
         }
-        //radiance = weight * eval_volemission(vsdf, outgoing);
-        
-        if (rand1f(rng) < 0.5f) {
-          incoming = sample_scattering(vsdf, outgoing, rand1f(rng), rand2f(rng));
-        } else {
-          incoming = sample_lights(
-                scene, position, rand1f(rng), rand1f(rng), rand2f(rng));
-        }
-        weight *= eval_scattering(vsdf, outgoing, incoming) /
-                  (0.5f * sample_scattering_pdf(vsdf, outgoing, incoming) +
-                  0.5f * sample_lights_pdf(scene, position, incoming));
       } else {
 	      bounce -= 1;
       }
