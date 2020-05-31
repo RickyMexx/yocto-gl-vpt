@@ -1303,6 +1303,7 @@ static vec4f trace_path(const ptr::scene* scene, const ray3f& ray_,
                   0.5f * sample_lights_pdf(scene, position, incoming));
       } else if(particle) {      
         if(params.vpt == DELTA) {
+          incoming = sample_scattering(vsdf, outgoing, rand1f(rng), rand2f(rng));
           if (vsdf.htvolume && has_vpt_emission(vsdf.object)) {
             auto volemission = eval_vpt_emission(vsdf, position);
             radiance += weight * math::blackbody_to_rgb(volemission * 40000.0f); 
