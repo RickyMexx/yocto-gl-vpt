@@ -356,6 +356,7 @@ struct object {
   vec3f               scale_vol    = {1, 1, 1}; // vpt
   vec3f               offset_vol   = {0, 0, 0}; // vpt
   float               density_mult = 1.0f;      // vpt
+  float               radiance_mult= 1.0f;      // vpt
 };
 
 // Environment map.
