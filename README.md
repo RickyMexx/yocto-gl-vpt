@@ -15,6 +15,7 @@ To perform the conversion from *.vdb* to a Yocto-compatible format we start by l
 
 The format used for the Yocto-compatible files is *.vol*. We obtain these using ```yovdbload```, which is a new application we implemented for volumes support that exploits ```yocto::image::save_volume()```. In this part we find the bounding voxels coordinates of the volumes and, in case they are negative, translate them to have the lower bound in ```(0, 0, 0)``` and the max bound in ```(|min_x|+max_x, |min_y|+max_y, |min_z|+max_z)```, in which min and max are the smallest and biggest voxel coordinates.
 
+![test](/out/lowres/smoke_720_256.jpg)
 
 
 ### Yocto/GL volumes add-ons
