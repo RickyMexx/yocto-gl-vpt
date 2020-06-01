@@ -40,7 +40,7 @@
 /out/*
 *.jpg
 *.vol
-/test/*
+/tests/*
 
 # vscode
 /.vscode/*

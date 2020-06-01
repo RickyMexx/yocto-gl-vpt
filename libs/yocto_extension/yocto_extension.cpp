@@ -196,7 +196,8 @@ namespace yocto::extension {
     // auto albedo       = vec3f{perlin_noise(vec3f{ray.o.x, 0.0, 0.0}),
     // 			      perlin_noise(vec3f{0.0, ray.o.y, 0.0}),
     // 			      perlin_noise(vec3f{0.0, 0.0, ray.o.z})};
-    auto albedo = vec3f(0.6);
+    //auto albedo = vec3f{perlin_noise(vec3f{ray.o})};
+    auto albedo = vec3f{0.6f};
     //albedo.x = perlin_noise(ray.o + t * ray.d);
     vsdf.density      = density;
 
@@ -243,6 +244,7 @@ namespace yocto::extension {
       return {t, path_contrib / mean(path_pdf)};
     } else if (e == EVENT_SCATTER) {
       return {t, path_contrib / mean(path_pdf)};
+      //return {t, vec3f{1.0f}};
     }
     return {t, vec3f(1)};
   }

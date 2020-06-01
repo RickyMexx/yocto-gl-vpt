@@ -173,6 +173,7 @@ void init_scene(ptr::scene* scene, sio::model* ioscene, ptr::camera*& camera,
           object->scale_vol    = ioobject->scale_vol;   // vpt
           object->offset_vol   = ioobject->offset_vol;  // vpt
           object->density_mult = ioobject->density_mult;// vpt
+          object->radiance_mult = ioobject->radiance_mult;// vpt
         }
         if (ioobject->emission_vol) { // vpt
           object->emission_vol = volume_map[ioobject->emission_vol];
@@ -196,6 +197,7 @@ void init_scene(ptr::scene* scene, sio::model* ioscene, ptr::camera*& camera,
         object->scale_vol    = ioobject->scale_vol;   // vpt
         object->offset_vol   = ioobject->offset_vol;  // vpt
         object->density_mult = ioobject->density_mult;// vpt
+        object->radiance_mult = ioobject->radiance_mult;// vpt
         //ext::gen_volumetric(object->density_vol, object->density_vol->extent); // vpt vol generator
       }
       if (ioobject->emission_vol) { // vpt
