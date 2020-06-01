@@ -197,33 +197,28 @@ namespace yocto::extension {
     // 			      perlin_noise(vec3f{0.0, ray.o.y, 0.0}),
     // 			      perlin_noise(vec3f{0.0, 0.0, ray.o.z})};
     //auto albedo = vec3f{perlin_noise(vec3f{ray.o})};
-    auto albedo = vec3f{0.6f};
+    //auto albedo = vec3f{0.6f};
+    // We want to generate a random albedo, correlated to the scattering values of the JSON
+    auto albedo = vsdf.scatter;
+    // albedo.x = clamp(albedo.x + perlin_noise(ray.o + t*ray.d), 0.0, 1.0);
+    // albedo.y = clamp(albedo.y + perlin_noise(ray.o + t*ray.d), 0.0, 1.0);
     //albedo.x = perlin_noise(ray.o + t * ray.d);
     vsdf.density      = density;
 
     auto sigma_t      = density;
-    if (sigma_t.x == 0.0f) {
-      return {t, vec3f(1)};
-    }
+    // if (sigma_t.x == 0.0f) {
+    //   return {t, vec3f(1)};
+    // }
     auto sigma_s      = albedo * sigma_t;
     auto sigma_a      = sigma_t * (1.0 - albedo[color_comp]);
     auto sigma_n      = vec3f(density_vol->max_voxel) - sigma_t;
 
     auto new_pos      = ray.o + t * ray.d; // new ray position
 
-    // printf("sigma_t : [%f %f %f]\tsigma_s : [%f %f %f]\tsigma_a : [%f %f %f]\tsigma_n : [%f %f %f]\n",
-    // 	   sigma_t.x, sigma_t.y, sigma_t.z,
-    // 	   sigma_s.x, sigma_s.y, sigma_s.z,
-    // 	   sigma_a.x, sigma_a.y, sigma_a.z,
-    // 	   sigma_n.x, sigma_n.y, sigma_n.z);
-    
-
     auto e = sample_event(sigma_a[color_comp] * imax_density,
     			  sigma_s[color_comp] * imax_density,
     			  sigma_n[color_comp] * imax_density, rn);
-    // auto e = sample_event(sigma_a[color_comp] / sigma_t[color_comp],
-    // 			  sigma_s[color_comp] / sigma_t[color_comp],
-    // 			  sigma_n[color_comp] / sigma_t[color_comp], rn);
+    
     auto mu_e = zero3f;
     switch(e) {
     case EVENT_NULL:
@@ -237,16 +232,18 @@ namespace yocto::extension {
       break;
     }
     event = e;
-    path_contrib *= (eval_transmittance(sigma_t, t) * mu_e);
+    path_contrib *= (eval_transmittance(sigma_t, t));
     path_pdf      = path_contrib;
+
+    return {t, path_contrib};
     
-    if (e == EVENT_ABSORB) {
-      return {t, path_contrib / mean(path_pdf)};
-    } else if (e == EVENT_SCATTER) {
-      return {t, path_contrib / mean(path_pdf)};
-      //return {t, vec3f{1.0f}};
-    }
-    return {t, vec3f(1)};
+    // if (e == EVENT_ABSORB) {
+    //   return {t, path_contrib};
+    // } else if (e == EVENT_SCATTER) {
+    //   return {t, path_contrib};
+    //   // return {t, vec3f{1.0f}};
+    // }
+    // return {t, vec3f(1)};
   }
 
   
