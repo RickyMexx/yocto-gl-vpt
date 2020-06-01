@@ -18,16 +18,30 @@ The format used for the Yocto-compatible files is *.vol*. We obtain these using 
 
 ### Yocto/GL volumes add-ons
 
+We introduce some changes in the original Yocto structure:
+- New object properties in JSON files
+- Volumes support in ```yocto/yocto_sceneio.{h,cpp}``` and ```yocto_pathtrace/yocto_pathtrace.{h,cpp}```
+- New options in ```yscenetrace``` and ```ysceneitraces``` apps
+- New ```yovdbload``` app for volumes extraction 
+- Insertion of ```yocto_extension/yocto_extension.{h,cpp}``` with the implemented algorithms
+- Adapted path tracer routine in ```yocto_pathtrace/yocto_pathtrace.{h,cpp}```
+
+Since we are dealing with a new type of objects, heterogenous volumes, we have to change a little bit the JSON features. We add a dedicated ```/volumes``` folder to store *.vol* files and a bunch of custom settings. Here is a list of the new properties that can be added to objects:
+
+
 JSON objects add-on | Type | Description
 :---: | :---: | -------------
-```density_vol``` | .vol | Volume containing density voxels
-```emission_vol``` | .vol | Volume containing temperature voxels
+```density_vol``` | .vol | Volume name containing density voxels
+```emission_vol``` | .vol | Volume name containing temperature voxels
 ```scale_vol``` | vec3f | XYZ scale of the volume
 ```offset_vol``` | vec3f | XYZ center offset of the volume
 ```density_mult``` | float | Handles the level of density of the volume
 ```radiance_mult``` | float | Handles the level of radiance the volume emits
 
-In ```yocto::extension```:
+All those features are then handled by ```yocto::sceneio``` and ```yocto::pathtrace``` that we change accurately. After adding also volumes support to the rendering apps ```yscenetrace``` and ```ysceneitraces```, we introduce a new option for the execution permitting us to choose one of the volumetric path tracing algorithms: ```--vpt,-v {delta, spectral}```.
+
+Concerning the algorithms, ```yocto::extension``` contains all the needed functions. Here is a listing:
+
 Function  | Description
 :---: | -------------
 ```check_bounds()``` | Checks if XYZ indices are inside the bounds
@@ -39,13 +53,37 @@ Function  | Description
 ```delta_tracking()``` | Implementation of delta tracking algorithm
 ```spectral_MIS()``` | Implementation of unidirectional spectral MIS algorithm
 
+We use those methods to compute all the necessary parameters like the density in a ray intersection point or the path tracing in volumes with different techniques. In particular, volumes are implemented using ```yocto::image::volume``` structure and other functions from the same namespace like ```yocto::image::eval_volume()``` which evaluates a voxel value at given coordinates.
+
+The structure for the ```vsdf``` is changed as following:
+```
+  struct vsdf {
+    vec3f density    = {0, 0, 0};
+    vec3f scatter    = {0, 0, 0};
+    float anisotropy = 0;
+    bool  htvolume   = false;
+    vec3f scale = {1.0, 1.0, 1.0};
+    const trace::object* object = nullptr;
+  };
+```
+now containing heterogeneous volume flag for the path trace, a scale for voxels evaluation, and the object to which it refers to retrieve other information.
+
+The structure of the path tracer in ```yocto::pathtrace``` has undergone some changes to deal with the two different volumetric algorithms. A parameter ```std::string vpt``` is added to the ```trace_params``` structure in order to know the type of tracing. This value is automatically linked with the rendering app.
+
+// to-do
 
 ### Delta tracking
 
+// to-do
+
 ### Unidirectional Spectral MIS
+
+// to-do
 
 ## Results
 how well it worked, performance numbers and include commented images
+
+// to-do
 
 ## Credits
 - [Riccardo Caprari](https://github.com/RickyMexx)
