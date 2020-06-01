@@ -84,7 +84,7 @@ using yocto::shape::split_facevarying;
 // EXTENSIONS FOR VOLUMETRIC PATH TRACING (VPT)
 // -----------------------------------------------------------------------------
 
-using extension::has_vptvolume;
+using extension::has_vpt_volume;
 using extension::check_bounds;
 using extension::has_vpt_density;
 using extension::has_vpt_emission;
@@ -465,7 +465,7 @@ static vsdf eval_vsdf(const ptr::object* object, int element, const vec2f& uv) {
   vsdf.anisotropy = scanisotropy;
 
   // If we are dealing with a real volume we look into its voxels // vpt
-  if(has_vptvolume(object)) {
+  if(has_vpt_volume(object)) {
     vsdf.htvolume = true;
     vsdf.object = object; // link the object to the vsdf structure    
   } else {
@@ -1271,7 +1271,7 @@ static vec4f trace_path(const ptr::scene* scene, const ray3f& ray_,
       }
 
       // update volume stack
-      if ((has_volume(object) || has_vptvolume(object)) 
+      if ((has_volume(object) || has_vpt_volume(object)) 
         &&  dot(normal, outgoing) * dot(normal, incoming) < 0) {
         if (volume_stack.empty()) {
           auto volpoint = eval_vsdf(object, element, uv);

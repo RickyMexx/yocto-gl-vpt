@@ -85,7 +85,7 @@ using img::eval_volume;
 // -----------------------------------------------------------------------------
 namespace yocto::extension {
 
-  bool has_vptvolume(const object* object) {
+  bool has_vpt_volume(const object* object) {
     return (object->density_vol != nullptr ||
 	    object->emission_vol != nullptr);
   }
