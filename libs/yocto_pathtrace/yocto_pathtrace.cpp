@@ -1311,12 +1311,12 @@ static vec4f trace_path(const ptr::scene* scene, const ray3f& ray_,
           }
         } else if (params.vpt == SPMIS) {
           if (collision_event == EVENT_ABSORB) {
-            auto volemission = vec3f{1.0}; //vec3f{0.f};
+            auto volemission = zero3f;
             if (vsdf.htvolume && has_vpt_emission(vsdf.object)) {
               auto vemission = eval_vpt_emission(vsdf, position);
               volemission = math::blackbody_to_rgb(vemission * 40000.0f);
             }
-            radiance = weight * volemission * vsdf.object->radiance_mult / mean(weight);
+            radiance += weight * volemission * vsdf.object->radiance_mult;
             break;
           } else if (collision_event == EVENT_SCATTER) {
             incoming = sample_scattering(vsdf, outgoing, rand1f(rng), rand2f(rng));
