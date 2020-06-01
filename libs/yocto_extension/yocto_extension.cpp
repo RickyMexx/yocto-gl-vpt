@@ -149,24 +149,14 @@ namespace yocto::extension {
       // intersection out of volume bounds
       return {max_distance, weight};
     }
-    // auto local_ipoint = transform_point(inverse(vsdf.oframe), ray.o + t * ray.d);
-    // float vdensity = eval_volume(*vsdf.ovol, local_ipoint * vsdf.scale, false, true, true) * 10;
-
     auto vdensity = eval_vpt_density(vsdf, ray.o + t * ray.d);
-    vsdf.density = vec3f{vdensity, vdensity, vdensity};
-
-    // if (vdensity == 0.0f) {
-    //   return {t, 1.0f};
-    // } else {
-    //   return {t, 1.0 - vdensity * imax_density};
-    // }
-    
+    vsdf.density = vec3f{vdensity, vdensity, vdensity};    
     if (vdensity > rn) {
       // return transmittance
       //printf("vdensity : %f\tcorr_density : %f\n", vdensity, vdensity * imax_density);
       // Russian roulette based on albedo
       if (vsdf.scatter.x < rn) {
-	      return {t, zero3f};      
+      	      return {t, zero3f};      
       }
       auto w_val = 1.0 - max(0.0f, vdensity * imax_density);
       return {t, weight * w_val};
