@@ -2,7 +2,7 @@
 
 This project is designed and implemented as an extension of [Yocto/GL](https://xelatihy.github.io/yocto-gl/), a collection of small C++17 libraries for building physically-based graphics algorithms. All credits of Yocto/GL to [Fabio Pellacini](http://pellacini.di.uniroma1.it/) and his team.
 
-<img src="/out/lowres/smoke_720_256.jpg" width="1000" alt="Volumetric Path Tracing" class="inline"/>
+![test](/out/lowres/campfire_spectral_1280_4096.jpg)
 
 ## Introduction
 As stated in the project title, we deal with volumetric path tracing ([VPT](https://en.wikipedia.org/wiki/Volumetric_path_tracing)) for heterogenous materials since it's not currently supported by the actual release of Yocto/GL. In particular, we focus our implementation on heterogeneous materials, adding full support for volumetric textures and [OpenVDB](https://www.openvdb.org/download/) models. Next, we proceed with the implementation of delta tracking algorithm presented in [PBRT](http://www.pbr-book.org/3ed-2018/Light_Transport_II_Volume_Rendering/Sampling_Volume_Scattering.html) book and a modern volumetric method proposed by [Miller et al](https://cs.dartmouth.edu/~wjarosz/publications/miller19null.html).
@@ -14,8 +14,6 @@ The starting point of the project is to find a reliable and, of course, a workin
 To perform the conversion from *.vdb* to a Yocto-compatible format we start by looking at the grids the volume has using ```openvdb_print``` application. Usually, as said before, a volume contains a grid for the density and optionally one for the temperature. We dump these grids using a custom function and generating a *.bin* file for each of them. These files contain xyz coordinates of each voxel and the float value of the current property.
 
 The format used for the Yocto-compatible files is *.vol*. We obtain these using ```yovdbload```, which is a new application we implemented for volumes support that exploits ```yocto::image::save_volume()```. In this part we find the bounding voxels coordinates of the volumes and, in case they are negative, translate them to have the lower bound in ```(0, 0, 0)``` and the max bound in ```(|min_x|+max_x, |min_y|+max_y, |min_z|+max_z)```, in which min and max are the smallest and biggest voxel coordinates.
-
-![test](/out/lowres/smoke_720_256.jpg)
 
 
 ### Yocto/GL volumes add-ons
