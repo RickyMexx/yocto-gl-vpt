@@ -1,6 +1,15 @@
-title: Yocto/GL:VPT
+title: "Yocto/GL: VPT"
 site_url: https://rickymexx.github.io/yocto-gl-vpt/
 theme: jekyll-theme-slate
 titles_from_headings:
   enabled:     true
   strip_title: true
+authors:
+  ricky:
+    name: Riccardo Caprari
+    display_name: Riccardo Caprari
+    github: RickyMexx
+  ema:
+    name: Emanuele Giacomini
+    display_name: Emanuele Giacomini
+    github: EmanueleGiacomini
