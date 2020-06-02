@@ -131,6 +131,8 @@ namespace yocto::extension {
 
   std::pair<float, vec3f> eval_delta_tracking(vsdf& vsdf, float max_distance, rng_state& rng,
 					      const ray3f& ray);
+  std::pair<float, vec3f> eval_pixar_delta(vsdf& vsdf, float max_distance, rng_state& rng,
+					   const ray3f& _ray);
 
   vec3f eval_vpt_transmittance(const vsdf& vsdf, float max_distance, rng_state& rng,
 			       const ray3f& ray);

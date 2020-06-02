@@ -151,8 +151,42 @@ namespace yocto::extension {
       if (density > rand1f(rng)) {
 	// Populate vsdf with medium interaction information and return
 	vsdf.density = vec3f(density);
-	return {path_length, vsdf.scatter};
+	return {path_length, (1.0 - vsdf.scatter)};
       } 
+    }
+    return {max_distance, vec3f{1}};
+  }
+  std::pair<float, vec3f> eval_pixar_delta(vsdf& vsdf, float max_distance, rng_state& rng,
+					   const ray3f& _ray) {
+    // Precompute values for Monte Carlo sampling on img::volume<float>
+    auto object       = vsdf.object;
+    auto density_vol  = object->density_vol;
+    auto emission_vol = object->emission_vol;
+    auto max_density  = density_vol->max_voxel * object->density_mult;
+    auto imax_density = 1.0f / max_density;
+    // Majorant of sigma_t
+    auto majorant_density = max_density;
+    auto path_length = 0.0f;
+    auto ray = _ray;
+    
+    while (true) {
+      auto d = ray.d;
+      auto t = log(1 - rand1f(rng)) / majorant_density;;
+      path_length -= t;
+      if (path_length >= max_distance)
+	break;
+      auto current_pos = ray.o + t * ray.d;
+      auto sigma_t     = vec3f(eval_vpt_density(vsdf, current_pos));
+      auto sigma_s     = vsdf.scatter * sigma_t;
+      auto sigma_a     = sigma_t * (1.0 - vsdf.scatter);
+      auto sigma_n     = vec3f(density_vol->max_voxel) - sigma_t;
+      if (rand1f(rng) < mean(sigma_a) / majorant_density) {
+	//printf("%f %f %f\n", sigma_a.x, sigma_a.y, sigma_a.z);
+	return {path_length, sigma_a};
+      } else if (rand1f(rng) - mean(sigma_n) / majorant_density) {
+	d = sample_phasefunction(vsdf.anisotropy, -ray.d, rand2f(rng));
+      }
+      ray = {current_pos, d};
     }
     return {max_distance, vec3f{1}};
   }
@@ -179,6 +213,70 @@ namespace yocto::extension {
       tr *= 1 - max((float)0, density);
     }
     return vec3f(tr);
+  }
+
+  static int sample_event(float pa, float ps, float pn, float rn) {
+    // https://stackoverflow.com/a/26751752
+    auto weights = vec3f{pa, ps, pn};
+    auto numbers = vec3i{EVENT_ABSORB, EVENT_SCATTER, EVENT_NULL};
+    float sum = 0.0f;
+    for (int i = 0; i < 3; ++i) {
+      sum += weights[i];
+      if(rn < sum) {
+	//printf("weights: pa: %f\tps: %f\tpn: %f\tsum: %i\n", pa, ps, pn, numbers[i]);
+	return numbers[i];
+      }
+    }
+    // Can reach this point only if |weights| < 1 (WRONG)
+    //printf("I should not be here : %f\n", pa + ps + pn);
+    return EVENT_NULL;
+  }
+
+  std::pair<float, vec3f> eval_unidirectional_spectral_mis(vsdf& vsdf, float max_distance,
+							   rng_state& rng, const ray3f& ray) {
+    auto object           = vsdf.object;
+    auto density_vol      = object->density_vol;
+    auto emission_vol     = object->emission_vol;
+    auto max_density      = density_vol->max_voxel * object->density_mult;
+    auto imax_density     = 1.0f / max_density;
+    auto majorant_density = max_density;
+    auto path_length      = 0.0f;
+    auto f                = vec3f(1);
+    auto p                = vec3f(1);
+    auto cc               = clamp((int)(rand1f(rng) * 3), 0, 2);
+
+    while (true) {
+      path_length     -= log(1 - rand1f(rng)) / majorant_density;
+      // Handle lengths bigger than max_distance
+      auto current_pos = ray.o + path_length * ray.d;
+      auto sigma_t     = vec3f(eval_vpt_density(vsdf, current_pos));
+      auto sigma_s     = vsdf.scatter * sigma_t;
+      auto sigma_a     = sigma_t * (1.0 - vsdf.scatter[cc]);
+      auto sigma_n     = vec3f(density_vol->max_voxel) - sigma_t;
+      // Sample event
+      auto mu_e        = zero3f;
+      auto e = sample_event(sigma_a[cc] * imax_density,
+			    sigma_s[cc] * imax_density,
+			    sigma_n[cc] * imax_density, rand1f(rng));
+      switch(e) {
+      case EVENT_NULL:
+	mu_e = sigma_n;
+	break;
+      case EVENT_SCATTER:
+	mu_e = sigma_s;
+	break;
+      case EVENT_ABSORB:
+	mu_e = sigma_a;
+	break;
+      }
+      f = f * eval_vpt_transmittance(vsdf, path_length, rng, ray) * mu_e;
+      p = f;
+      if (e == EVENT_ABSORB) {
+	// TODO
+      }
+    }
+    
+    return {0.0, zero3f};    
   }
 
   std::pair<float, vec3f> delta_tracking(vsdf& vsdf, float max_distance, float rn,
@@ -216,22 +314,7 @@ namespace yocto::extension {
     return {t, weight};  
   }
   
-  static int sample_event(float pa, float ps, float pn, float rn) {
-    // https://stackoverflow.com/a/26751752
-    auto weights = vec3f{pa, ps, pn};
-    auto numbers = vec3i{EVENT_ABSORB, EVENT_SCATTER, EVENT_NULL};
-    float sum = 0.0f;
-    for (int i = 0; i < 3; ++i) {
-      sum += weights[i];
-      if(rn < sum) {
-	//printf("weights: pa: %f\tps: %f\tpn: %f\tsum: %i\n", pa, ps, pn, numbers[i]);
-	return numbers[i];
-      }
-    }
-    // Can reach this point only if |weights| < 1 (WRONG)
-    //printf("I should not be here : %f\n", pa + ps + pn);
-    return EVENT_NULL;
-  }
+  
 
   std::pair<float, vec3f> spectral_MIS(vsdf& vsdf, float max_distance, float rni,
 				       float rn, float eps, const ray3f& ray, int& event) {

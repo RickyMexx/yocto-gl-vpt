@@ -92,6 +92,7 @@ using extension::eval_vpt_density;
 using extension::eval_vpt_emission;
 using extension::delta_tracking;
 using extension::eval_delta_tracking;
+using extension::eval_pixar_delta;
 using extension::spectral_MIS;
 using extension::vsdf;
 
@@ -1204,6 +1205,7 @@ static float sample_scattering_pdf(
 	auto &vsdf = volume_stack.back();
 	// Handle heterogeneous volumes
 	auto [t, w] = eval_delta_tracking(vsdf, intersection.distance, rng, ray);
+	//auto [t, w] = eval_pixar_delta(vsdf, intersection.distance, rng, ray);
 	weight *= w * eval_vpt_transmittance(vsdf, t, rng, ray);
 	position = ray.o + t * ray.d;
 	// Handle an interaction with a medium
@@ -1254,6 +1256,7 @@ static float sample_scattering_pdf(
 	// update volume stack
 	if ((has_volume(object) || has_vptvolume(object)) 
 	    &&  dot(normal, outgoing) * dot(normal, incoming) < 0) {
+	  bounce -= 1;
 	  if (volume_stack.empty()) {
 	    auto volpoint = eval_vsdf(object, element, uv);
 	    volume_stack.push_back(volpoint);
