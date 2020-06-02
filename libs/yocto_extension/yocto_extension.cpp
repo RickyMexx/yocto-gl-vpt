@@ -128,6 +128,58 @@ namespace yocto::extension {
     auto uvl = transform_point(inverse(oframe), uvw) + offset;
     return eval_volume(*vol, uvl * scale, true, false, true) * inv_max;
   }
+  // TODO(EManuele): Change rng to a pair of precomputed random numbers. (hopefully a solution)
+  std::pair<float, vec3f> eval_delta_tracking(vsdf& vsdf, float max_distance, rng_state& rng,
+					      const ray3f& ray) {
+    // Precompute values for Monte Carlo sampling on img::volume<float>
+    auto object       = vsdf.object;
+    auto density_vol  = object->density_vol;
+    auto emission_vol = object->emission_vol;
+    auto max_density  = density_vol->max_voxel * object->density_mult;
+    auto imax_density = 1.0f / max_density;
+    // Majorant of sigma_t
+    auto majorant_density = max_density;
+    auto path_length = 0.0f;
+    
+    while (true) {
+      path_length -= log(1 - rand1f(rng)) / majorant_density;
+      if (path_length >= max_distance)
+	break;
+      auto current_pos = ray.o + path_length * ray.d;
+      //printf("path: %f\tmax: %f\n", path_length, max_distance);
+      auto density = eval_vpt_density(vsdf, current_pos) * imax_density;
+      if (density > rand1f(rng)) {
+	// Populate vsdf with medium interaction information and return
+	vsdf.density = vec3f(density);
+	return {path_length, vsdf.scatter};
+      } 
+    }
+    return {max_distance, vec3f{1}};
+  }
+
+  vec3f eval_vpt_transmittance(const vsdf& vsdf, float max_distance, rng_state& rng,
+			       const ray3f& ray) {
+    // Precompute values for Monte Carlo sampling on img::volume<float>
+    auto object       = vsdf.object;
+    auto density_vol  = object->density_vol;
+    auto emission_vol = object->emission_vol;
+    auto max_density  = density_vol->max_voxel * object->density_mult;
+    auto imax_density = 1.0f / max_density;
+    // Majorant of sigma_t
+    auto majorant_density = max_density;
+    auto path_length = 0.0f;
+    auto tr          = 1.0f;
+
+    while (true) {
+      path_length -= log(1 - rand1f(rng)) / majorant_density;
+      if (path_length >= max_distance)
+	break;
+      auto current_pos = ray.o + path_length * ray.d;
+      auto density = eval_vpt_density(vsdf, current_pos) * imax_density;
+      tr *= 1 - max((float)0, density);
+    }
+    return vec3f(tr);
+  }
 
   std::pair<float, vec3f> delta_tracking(vsdf& vsdf, float max_distance, float rn,
 						float eps, const ray3f& ray) {

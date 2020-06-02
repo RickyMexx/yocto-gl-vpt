@@ -128,6 +128,12 @@ namespace yocto::extension {
   // TODO: Add comment
   std::pair<float, vec3f> spectral_MIS(vsdf& vsdf, float max_distance, float rni,
 				       float rn, float eps, const ray3f& ray, int& event);
+
+  std::pair<float, vec3f> eval_delta_tracking(vsdf& vsdf, float max_distance, rng_state& rng,
+					      const ray3f& ray);
+
+  vec3f eval_vpt_transmittance(const vsdf& vsdf, float max_distance, rng_state& rng,
+			       const ray3f& ray);
   
   // takes as input a volume ptr and fills it with a perlin volumetric texture // vpt
   void gen_volumetric(img::volume<float>* vol, const vec3i& size);

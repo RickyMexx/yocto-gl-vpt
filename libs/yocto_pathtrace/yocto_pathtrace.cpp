@@ -91,6 +91,7 @@ using extension::has_vpt_emission;
 using extension::eval_vpt_density;
 using extension::eval_vpt_emission;
 using extension::delta_tracking;
+using extension::eval_delta_tracking;
 using extension::spectral_MIS;
 using extension::vsdf;
 
@@ -1173,25 +1174,127 @@ static float sample_scattering_pdf(
   if (vsdf.density == zero3f) return 0;
   return sample_phasefunction_pdf(vsdf.anisotropy, outgoing, incoming);
 }
+    
+  // }
+  // Path tracing (Revised by Emanuele Giacomini)
+  static vec4f eg_trace_path(const ptr::scene* scene, const ray3f& ray_,
+			  rng_state& rng, const trace_params& params) {
+    // initialize
+    auto radiance     = zero3f;
+    auto weight       = vec3f{1, 1, 1};
+    auto ray          = ray_;
+    auto volume_stack = std::vector<vsdf>{};
+    auto hit          = false;
+    
+    for (auto bounce = 0; bounce < params.bounces; bounce++) {
+      // intersect next point
+      auto intersection = intersect_scene_bvh(scene, ray);
+      if (!intersection.hit) {
+	radiance += weight * eval_environment(scene, ray);
+	break;
+      }
+      
+      auto in_volume = false;
+      auto incoming  = ray.d;
+      auto outgoing  = -ray.d;
+      auto position  = zero3f;
+      
+      // Handle volumes      
+      if (!volume_stack.empty()) {
+	auto &vsdf = volume_stack.back();
+	// Handle heterogeneous volumes
+	auto [t, w] = eval_delta_tracking(vsdf, intersection.distance, rng, ray);
+	weight *= w * eval_vpt_transmittance(vsdf, t, rng, ray);
+	position = ray.o + t * ray.d;
+	// Handle an interaction with a medium
+	if (t < intersection.distance) {
+	  in_volume = true;
+	  incoming = sample_scattering(vsdf, outgoing, rand1f(rng), rand2f(rng));
+	  //radiance += weight * sample_lights_pdf(scene, position, incoming); 
+	}
+	intersection.distance = t;
+      } // if(!volume_stack.empty())
+      
+      if (!in_volume) {
+	// prepare shading point
+	auto object   = scene->objects[intersection.object];
+	auto element  = intersection.element;
+	auto uv       = intersection.uv;
+	position = eval_position(object, element, uv);
+	auto normal   = eval_shading_normal(object, element, uv, outgoing);
+	auto emission = eval_emission(object, element, uv, normal, outgoing);
+	auto brdf     = eval_brdf(object, element, uv, normal, outgoing);
+	
+	// handle opacity
+	if (brdf.opacity < 1 && rand1f(rng) >= brdf.opacity) {
+	  ray = {position + ray.d * 1e-2f, ray.d};
+	  bounce -= 1;
+	  continue;
+	}
+	hit = true;
+	// accumulate emission
+	radiance += weight * eval_emission(emission, normal, outgoing);
+	// next direction
+	incoming = ray.d;
+	if (!is_delta(brdf)) {
+	  if (rand1f(rng) < 0.5f) {
+	    incoming = sample_brdfcos(brdf, normal, outgoing, rand1f(rng), rand2f(rng));
+	  } else {
+	    incoming = sample_lights(scene, position, rand1f(rng), rand1f(rng), rand2f(rng));
+	  }
+	  weight *= eval_brdfcos(brdf, normal, outgoing, incoming) /
+	    (0.5f * sample_brdfcos_pdf(brdf, normal, outgoing, incoming) +
+	     0.5f * sample_lights_pdf(scene, position, incoming));
+	} else {
+	  incoming = sample_delta(brdf, normal, outgoing, rand1f(rng));
+	  weight *= eval_delta(brdf, normal, outgoing, incoming) /
+	    sample_delta_pdf(brdf, normal, outgoing, incoming);
+	} 
 
+	// update volume stack
+	if ((has_volume(object) || has_vptvolume(object)) 
+	    &&  dot(normal, outgoing) * dot(normal, incoming) < 0) {
+	  if (volume_stack.empty()) {
+	    auto volpoint = eval_vsdf(object, element, uv);
+	    volume_stack.push_back(volpoint);
+	  } else {
+	    volume_stack.pop_back();
+	  } // if(volume_stack.empty())
+	} // if ((has_volume(object) || has_vptvolume(object))...
+      } // if (!in_volume)      
+      // check weight
+      if (weight == zero3f || !isfinite(weight)) break;
+      // russian roulette
+      if (bounce > 3) {
+      	auto rr_prob = min((float)0.99, max(weight));
+      	if (rand1f(rng) >= rr_prob) break;
+      	weight *= 1 / rr_prob;
+      } // if(bounce > 3)
+
+      // setup next iteration
+      ray = {position, incoming};
+    } // for(auto bounce...)
+    return {radiance, hit ? 1.0f : 0.0f};
+  }// trace_path
+  
 // Path tracing.
-static vec4f trace_path(const ptr::scene* scene, const ray3f& ray_,
-    rng_state& rng, const trace_params& params) {
-  // initialize
-  auto radiance     = zero3f;
-  auto weight       = vec3f{1, 1, 1};
-  auto ray          = ray_;
-  auto volume_stack = std::vector<vsdf>{};
-  auto hit          = false;
-
-  // trace  path
-  for (auto bounce = 0; bounce < params.bounces; bounce++) {
-    // intersect next point
-    auto intersection = intersect_scene_bvh(scene, ray);
-    if (!intersection.hit) {
-      radiance += weight * eval_environment(scene, ray);
-      break;
-    }
+  static vec4f trace_path(const ptr::scene* scene, const ray3f& ray_,
+			  rng_state& rng, const trace_params& params) {
+    // initialize
+    auto radiance     = zero3f;
+    auto weight       = vec3f{1, 1, 1};
+    auto ray          = ray_;
+    auto volume_stack = std::vector<vsdf>{};
+    auto hit          = false;
+    
+    // trace  path
+    for (auto bounce = 0; bounce < params.bounces; bounce++) {
+      // intersect next point
+      auto intersection = intersect_scene_bvh(scene, ray);
+      if (!intersection.hit) {
+	radiance += weight * eval_environment(scene, ray);
+	break;
+      }
     
     auto particle = false;
     auto in_volume = false;
@@ -1206,21 +1309,21 @@ static vec4f trace_path(const ptr::scene* scene, const ray3f& ray_,
 
         if(params.vpt == DELTA) {
           std::tie(dist, w) = delta_tracking(vsdf, intersection.distance,
-                                      rand1f(rng), rand1f(rng), ray);
+					     rand1f(rng), rand1f(rng), ray);
           particle = w != vec3f{1.0f};
         } else if (params.vpt == SPMIS) {
           std::tie(dist, w) = spectral_MIS(vsdf, intersection.distance, rand1f(rng),
-                                    rand1f(rng), rand1f(rng), ray, collision_event);
+					   rand1f(rng), rand1f(rng), ray, collision_event);
           particle = collision_event != EVENT_NULL;
         }
-
+	
         in_volume = dist < intersection.distance;
         intersection.distance = dist;
         weight *= w;
       } else {
         auto  distance = sample_transmittance(vsdf.density, intersection.distance, rand1f(rng), rand1f(rng));
         weight *= eval_transmittance(vsdf.density, distance) /
-                  sample_transmittance_pdf(
+	  sample_transmittance_pdf(
                       vsdf.density, distance, intersection.distance);
         in_volume             = distance < intersection.distance;
         intersection.distance = distance;
@@ -1267,12 +1370,12 @@ static vec4f trace_path(const ptr::scene* scene, const ray3f& ray_,
       } else {
         incoming = sample_delta(brdf, normal, outgoing, rand1f(rng));
         weight *= eval_delta(brdf, normal, outgoing, incoming) /
-                  sample_delta_pdf(brdf, normal, outgoing, incoming);
+	  sample_delta_pdf(brdf, normal, outgoing, incoming);
       }
-
+      
       // update volume stack
       if ((has_volume(object) || has_vptvolume(object)) 
-        &&  dot(normal, outgoing) * dot(normal, incoming) < 0) {
+	  &&  dot(normal, outgoing) * dot(normal, incoming) < 0) {
         if (volume_stack.empty()) {
           auto volpoint = eval_vsdf(object, element, uv);
           volume_stack.push_back(volpoint);
@@ -1280,7 +1383,7 @@ static vec4f trace_path(const ptr::scene* scene, const ray3f& ray_,
           volume_stack.pop_back();
         }
       }
-
+      
       // setup next iteration
       ray = {position, incoming};
     } else {
@@ -1495,7 +1598,11 @@ using shader_func = vec4f (*)(const ptr::scene* scene, const ray3f& ray,
 static shader_func get_trace_shader_func(const trace_params& params) {
   switch (params.shader) {
     case shader_type::naive: return trace_naive;
-    case shader_type::path: return trace_path;
+    case shader_type::path:
+      if (params.vpt == DELTA)
+	return eg_trace_path;
+      else
+	return trace_path;
     case shader_type::eyelight: return trace_eyelight;
     case shader_type::normal: return trace_normal;
     default: {
