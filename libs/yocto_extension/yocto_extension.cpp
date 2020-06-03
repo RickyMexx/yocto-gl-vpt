@@ -128,13 +128,12 @@ namespace yocto::extension {
     auto uvl = transform_point(inverse(oframe), uvw) + offset;
     return eval_volume(*vol, uvl * scale, true, false, true) * inv_max;
   }
-  // TODO(EManuele): Change rng to a pair of precomputed random numbers. (hopefully a solution)
+  
   std::pair<float, vec3f> eval_delta_tracking(vsdf& vsdf, float max_distance, rng_state& rng,
 					      const ray3f& ray) {
     // Precompute values for Monte Carlo sampling on img::volume<float>
     auto object       = vsdf.object;
     auto density_vol  = object->density_vol;
-    auto emission_vol = object->emission_vol;
     auto max_density  = density_vol->max_voxel * object->density_mult;
     auto imax_density = 1.0f / max_density;
     // Majorant of sigma_t
@@ -146,7 +145,6 @@ namespace yocto::extension {
       if (path_length >= max_distance)
 	break;
       auto current_pos = ray.o + path_length * ray.d;
-      //printf("path: %f\tmax: %f\n", path_length, max_distance);
       auto density = eval_vpt_density(vsdf, current_pos) * imax_density;
       if (density > rand1f(rng)) {
 	// Populate vsdf with medium interaction information and return
@@ -247,7 +245,8 @@ namespace yocto::extension {
 
     while (true) {
       path_length     -= log(1 - rand1f(rng)) / majorant_density;
-      // Handle lengths bigger than max_distance
+      if (path_length >= max_distance)
+	break;
       auto current_pos = ray.o + path_length * ray.d;
       auto sigma_t     = vec3f(eval_vpt_density(vsdf, current_pos));
       auto sigma_s     = vsdf.scatter * sigma_t;
@@ -271,12 +270,14 @@ namespace yocto::extension {
       }
       f = f * eval_vpt_transmittance(vsdf, path_length, rng, ray) * mu_e;
       p = f;
-      if (e == EVENT_ABSORB) {
-	// TODO
+      if (e == EVENT_ABSORB || e == EVENT_SCATTER) {
+	// Populate vsdf with medium interaction information and return
+	vsdf.event = e;
+	vsdf.density = vec3f(sigma_t);
+	break;
       }
-    }
-    
-    return {0.0, zero3f};    
+    }    
+    return {path_length, f / mean(p)};
   }
 
   std::pair<float, vec3f> delta_tracking(vsdf& vsdf, float max_distance, float rn,
@@ -303,7 +304,6 @@ namespace yocto::extension {
     vsdf.density = vec3f{vdensity, vdensity, vdensity};    
     if (vdensity > rn) {
       // return transmittance
-      //printf("vdensity : %f\tcorr_density : %f\n", vdensity, vdensity * imax_density);
       // Russian roulette based on albedo
       if (vsdf.scatter.x < rn) {
       	      return {t, zero3f};      

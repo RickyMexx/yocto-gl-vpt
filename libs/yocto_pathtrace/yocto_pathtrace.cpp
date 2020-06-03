@@ -92,7 +92,7 @@ using extension::eval_vpt_density;
 using extension::eval_vpt_emission;
 using extension::delta_tracking;
 using extension::eval_delta_tracking;
-using extension::eval_pixar_delta;
+using extension::eval_unidirectional_spectral_mis;
 using extension::spectral_MIS;
 using extension::vsdf;
 
@@ -1204,17 +1204,34 @@ static float sample_scattering_pdf(
       if (!volume_stack.empty()) {
 	auto &vsdf = volume_stack.back();
 	// Handle heterogeneous volumes
-	auto [t, w] = eval_delta_tracking(vsdf, intersection.distance, rng, ray);
-	//auto [t, w] = eval_pixar_delta(vsdf, intersection.distance, rng, ray);
-	weight *= w * eval_vpt_transmittance(vsdf, t, rng, ray);
-	position = ray.o + t * ray.d;
-	// Handle an interaction with a medium
-	if (t < intersection.distance) {
-	  in_volume = true;
-	  incoming = sample_scattering(vsdf, outgoing, rand1f(rng), rand2f(rng));
-	  //radiance += weight * sample_lights_pdf(scene, position, incoming); 
+	if (params.vpt == DELTA) {
+	  // delta tracking
+	  auto [t, w] = eval_delta_tracking(vsdf, intersection.distance, rng, ray);
+	  weight *= w * eval_vpt_transmittance(vsdf, t, rng, ray);
+	  position = ray.o + t * ray.d;
+	  if (t < intersection.distance) {
+	    in_volume = true;
+	    incoming = sample_scattering(vsdf, outgoing, rand1f(rng), rand2f(rng));
+	  }
+	  intersection.distance = t;
+	} else if (params.vpt == SPMIS) {
+	  // Spectral tracking
+	  auto [t, w] = eval_unidirectional_spectral_mis(vsdf, intersection.distance, rng, ray);
+	  weight *= w;	
+	  position = ray.o + t * ray.d;
+	  // Handle an interaction with a medium
+	  if (t < intersection.distance) {
+	    in_volume = true;	    
+	    if (vsdf.event == EVENT_SCATTER)
+	      incoming = sample_scattering(vsdf, outgoing, rand1f(rng), rand2f(rng));
+	    if (vsdf.event == EVENT_ABSORB) {
+	      incoming = sample_lights(scene, position, rand1f(rng), rand1f(rng), rand2f(rng));
+	      weight *= sample_lights_pdf(scene, position, incoming);
+	    }
+	  }
+	  intersection.distance = t;
 	}
-	intersection.distance = t;
+	
       } // if(!volume_stack.empty())
       
       if (!in_volume) {
@@ -1602,10 +1619,11 @@ static shader_func get_trace_shader_func(const trace_params& params) {
   switch (params.shader) {
     case shader_type::naive: return trace_naive;
     case shader_type::path:
-      if (params.vpt == DELTA)
-	return eg_trace_path;
-      else
-	return trace_path;
+      return eg_trace_path;
+      // if (params.vpt == DELTA)
+      // 	return eg_trace_path;
+      // else
+      // 	return trace_path;
     case shader_type::eyelight: return trace_eyelight;
     case shader_type::normal: return trace_normal;
     default: {
