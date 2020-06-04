@@ -2,7 +2,7 @@
 
 This project is designed and implemented as an extension of [Yocto/GL](https://xelatihy.github.io/yocto-gl/), a collection of small C++17 libraries for building physically-based graphics algorithms. All credits of Yocto/GL to [Fabio Pellacini](http://pellacini.di.uniroma1.it/) and his team.
 
-![test](/out/lowres/campfire_spectral_1280_4096.jpg)
+![campfire](/images/banner.jpg)
 
 ## Introduction
 As stated in the project title, we deal with volumetric path tracing ([VPT](https://en.wikipedia.org/wiki/Volumetric_path_tracing)) for heterogenous materials since it's not currently supported by the actual release of Yocto/GL. In particular, we focus our implementation on heterogeneous materials, adding full support for volumetric textures and [OpenVDB](https://www.openvdb.org/download/) models. Next, we proceed with the implementation of delta tracking algorithm presented in [PBRT](http://www.pbr-book.org/3ed-2018/Light_Transport_II_Volume_Rendering/Sampling_Volume_Scattering.html) book and two modern volumetric methods: spectral tracking from [Kutz et al](https://s3-us-west-1.amazonaws.com/disneyresearch/wp-content/uploads/20170823124227/Spectral-and-Decomposition-Tracking-for-Rendering-Heterogeneous-Volumes-Paper1.pdf) and unidirectional spectral MIS proposed by [Miller et al](https://cs.dartmouth.edu/~wjarosz/publications/miller19null.html).
@@ -144,9 +144,36 @@ In the last scene we wanted to understand how clouds behaved with objects, namel
 
 ![3comp](/images/3_comparison.png)
 
+## Full testing scenes
+Here we propose some of our testing scenes with a comparison of the three algorithms, disposed in the same way as before (Delta Tracking - Spectral Tracking - Spectral MIS). It's possible to notice that when the temperature comes in, the three algorithms differs a bit on the emitted radiance. Instead, as shown in the image of the modified Disney cloud, when there's no emission the outputs look identical.
+![volcano](/images/volcano_delta_1280_4096.jpg)
+![volcano_comparison](/images/volcano_comparison.jpg)
+
+![campfire](/images/campfire_spectraltracking_1280_4096.jpg)
+![campfire_comparison](/images/campfire_comparison.jpg)
+
+![cloud](/images/cloud_delta_1280_4096.jpg)
+![cloud_comparison](/images/cloud_comparison.jpg)
+
+
 ## Credits
 - [Riccardo Caprari](https://github.com/RickyMexx)
 - [Emanuele Giacomini](https://github.com/EmanueleGiacomini)
+
+
+## Installation and usage
+To use this extension make sure you own all the requirements from [Yocto/GL](https://github.com/xelatihy/yocto-gl#compilation).
+
+Now simply clone/download the repo and follow these steps:
+- ```cd yocto-gl-vpt```
+- ```sh scripts/build.sh```
+- ```sh scripts/run.sh```
+
+In this repo we provide a standard scene of homogeneous volumes from Yocto/GL. If you wish to try out the scenes showed before with heterogeneous volumes you can download them [here](). Unzip the package you downloaded and put it in the ```/tests``` folder. Now you should edit ```/scripts/run.sh``` and add a line for the scene you want to render, e.g.:
+- ```./bin/yscenetrace tests/campfire/campfire.json -o out/lowres/campfire.jpg -t path -s 4096 -r 1280 -v delta```
+
+which uses yscenetrace app to render the scene, from the campfire json, using the pathtrace (*-t*), with 4096 samples (*-s*), resolution of 1280 (*-r*) and using delta tracking algorithm (*-v*).
+
 
 ## References
 - [Yocto/GL](https://xelatihy.github.io/yocto-gl/)
@@ -156,8 +183,3 @@ In the last scene we wanted to understand how clouds behaved with objects, namel
 - [Production Volume Rendering](https://graphics.pixar.com/library/ProductionVolumeRendering/paper.pdf), Pixar Animation Studios
 - [OpenVDB](https://www.openvdb.org/)
 - [Disney clouds](https://www.technology.disneyanimation.com/clouds)
-
-
-
-
-
