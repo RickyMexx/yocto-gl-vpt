@@ -88,7 +88,9 @@ in which T is the trasmittance computed simultaneously and s is the scatter. Thi
 ### Spectral Tracking
 
 Another implemented approach follows the Spectral Tracking algorithm proposed by [Kutz et al](https://s3-us-west-1.amazonaws.com/disneyresearch/wp-content/uploads/20170823124227/Spectral-and-Decomposition-Tracking-for-Rendering-Heterogeneous-Volumes-Paper1.pdf). Each interaction with the volume is now resolved across all the defined spectrum (in our case the 3-channels RGB spectrum).
-We decided to implement Spectral Tracking in order to compare differences between Delta tracking, and the next algorithm that will be proposed, namely Spectral MIS.
+We decided to implement Spectral Tracking in order to compare differences between Delta tracking, and the next algorithm that will be proposed, namely Spectral MIS. 
+
+Further details on the implementation [here](/libs/yocto_extension/yocto_extension.cpp).
 
 ### Unidirectional Spectral MIS
 
@@ -156,11 +158,6 @@ Here we propose some of our testing scenes with a comparison of the three algori
 ![cloud_comparison](/images/cloud_comparison.jpg)
 
 
-## Credits
-- [Riccardo Caprari](https://github.com/RickyMexx)
-- [Emanuele Giacomini](https://github.com/EmanueleGiacomini)
-
-
 ## Installation and usage
 To use this extension make sure you own all the requirements from [Yocto/GL](https://github.com/xelatihy/yocto-gl#compilation).
 
@@ -169,10 +166,15 @@ Now simply clone/download the repo and follow these steps:
 - ```sh scripts/build.sh```
 - ```sh scripts/run.sh```
 
-In this repo we provide a standard scene of homogeneous volumes from Yocto/GL. If you wish to try out the scenes showed before with heterogeneous volumes you can download them [here](). Unzip the package you downloaded and put it in the ```/tests``` folder. Now you should edit ```/scripts/run.sh``` and add a line for the scene you want to render, e.g.:
+In this repo we provide a standard scene of homogeneous volumes from Yocto/GL. If you wish to try out the scenes showed before with heterogeneous volumes you can download them [here](https://drive.google.com/drive/folders/1om0jMhjNFIFUhZS4N_M4fdKLXPp8jLtI?usp=sharing). Unzip the package you downloaded and put it in the ```/tests``` folder. Now you should edit ```/scripts/run.sh``` and add a line for the scene you want to render, e.g.:
 - ```./bin/yscenetrace tests/campfire/campfire.json -o out/lowres/campfire.jpg -t path -s 4096 -r 1280 -v delta```
 
 which uses yscenetrace app to render the scene, from the campfire json, using the pathtrace (*-t*), with 4096 samples (*-s*), resolution of 1280 (*-r*) and using delta tracking algorithm (*-v*).
+
+
+## Credits
+- [Riccardo Caprari](https://github.com/RickyMexx)
+- [Emanuele Giacomini](https://github.com/EmanueleGiacomini)
 
 
 ## References
