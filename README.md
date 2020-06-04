@@ -105,10 +105,43 @@ We can resume spectral mis these salient steps:
 Another important term here is the sample_event() function which, in our implementation, is based on this [thread](https://stackoverflow.com/a/26751752). The probabilities we use for this function are computed using the sampled channel of sigma_a, sigma_s and sigma_n, normalized with the max density. Then we add to the path contribution f a different value which depends on the sorted event and the trasmittance T if absorption or scattering occur. Absorption and scattering are treated in the same way in the main loop but, like for the other two algorithms, we compute the emission in the first and sample the incoming direction with the phase function in the second. Another simplification is that the path of pdfs is equal to the one of contributions using the cancellation trick. At the end, if absorption or scattering occur, we return a weight which is made of the path of contributions divided by the mean of p. Refer to [extension](/libs/yocto_extension/yocto_extension.cpp) for further details.
 
 ## Results
+
+![scene_comp](/images/scene_comparison.png)
+
 In order to compare the proposed algorithms, we propose three scenarios on which heterogeneous volumes are evaluated:
-- Homogeneous Albedo: bunny cloud exposed to 4 large light panels on left/right, up/down sides. Each panel emits a different light. The cloud material has an uniform albedo vector, hence it uniformly scatters all the colors.
-- Heterogeneous Albedo: Same setup of H.A. scene, but only the upper panel is lit, and it emits white light. The cloud material has an heterogeneous albedo; green channel is fully scattered while RB spectrum is fully absorbed.
-- Scene 3: Simple scene with smoke2 and bunny_cloud densities from OpenVDB.
+- __Homogeneous Albedo__: bunny cloud exposed to 4 large light panels on left/right, up/down sides. Each panel emits a different light. The cloud material has an uniform albedo vector, hence it uniformly scatters all the colors.
+- __Heterogeneous Albedo__: Same setup of H.A. scene, but only the upper panel is lit, and it emits white light. The cloud material has an heterogeneous albedo; green channel is fully scattered while RB spectrum is fully absorbed.
+- __Scene 3__: Simple scene with smoke2 and bunny_cloud densities from OpenVDB.
+
+For each scene, each algorithm was executed with 3 different sampling quality, namely:
+- 16 spp
+- 256 spp
+- 2048 spp
+
+In the following section, comparison images will be shown. Each image is divided into 3 frames, from left to right they are:
+1. Delta Tracking
+2. Spectral Tracking
+3. Spectral MIS
+
+### Homogeneous Albedo
+![s01](/images/01_1280_2048.jpg)
+Regarding the first scene, it is possible to notice how already with 16 spp, all the algorithms approaches convergence. As expected from the theory, no peculiar performance difference can be noticed between DT, ST and SMIS. We also provide a comparison of the result at 16 spp, plus a plot showing rendering timings for the scene wrt No. of samples:
+
+![1comp](/images/1_comparison.png)
+![1comp_plot](/images/s_01_performance.png)
+
+### Heterogeneous Albedo
+![s02](/images/02_1280_2048.jpg)
+For the second scene, we expected a wider difference between rendering times between DT, ST and SMIS, since the last algorithm relies on the same heterogeneity of the spectrum extintion in order to quickly estimate volume collisions. We noticed almost a 2x speedup during the renderings of this scene while using SMIS.
+
+![2comp](/images/2_comparison.png)
+![2comp_plot](/images/s_02_performance.png)
+
+### Scene 3
+![s02](/images/03_1280_256.jpg)
+In the last scene we wanted to understand how clouds behaved with objects, namely the floor. It's quite interesting to see how clouds project shadows onto the floor. Regarding the comparison, the 3 methods gave quite different results. We do not report the timing plot for this scene since the results are similar to H.S. scene.
+
+![3comp](/images/3_comparison.png)
 
 ## Credits
 - [Riccardo Caprari](https://github.com/RickyMexx)
