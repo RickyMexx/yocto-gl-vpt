@@ -75,15 +75,36 @@ The structure of the path tracer in ```yocto::pathtrace``` has undergone some ch
 
 ### Delta Tracking
 
-The first algorithm we focus on, and the classic one if we want to say, is delta tracking.
+The first algorithm we focus on, and the classic one if we want to say, is delta tracking. This algorithm, like the next two we are going to implement, is interpreted as filling the medium of real particles with additional particles, the fictitious ones. This leads to a study based on whenever a real particle has been hit and how the ray should behave. Moreover, we extend the basic version of delta tracking from [PBRT](https://www.pbrt.org/), which handles only scattering and null collision events, with the modified version from [Kutz et al](https://s3-us-west-1.amazonaws.com/disneyresearch/wp-content/uploads/20170823124227/Spectral-and-Decomposition-Tracking-for-Rendering-Heterogeneous-Volumes-Paper1.pdf). This permits us to make a comparison of similarities and computational times with the next two techniques in the [Results](#results) section. In this algorithm, the spectrum of the scatter is the treated taking the majorant of the channel without considering the others. We will see in the spectral MIS section why this choice has a big impact on the algorithm performances.
+
+The mixed version of delta tracking we implement, and that produced the best results along the others, can be resumed as follow:
+- Sample a distance t. If t is greater than the maximum distance, i.e. the edge of the volume, exit.
+- ```EVENT_ABSORB```: Exit with weight=1 and evaluate the emission of the volume. 
+- ```EVENT_SCATTER```: Exit with weight=T*s and sample incoming direction with the sample phase function.
+- ```EVENT_NULL```: If the precedent events don't occur, continue.
+
+in which T is the trasmittance computed simultaneously and s is the scatter. This is just a simple list of steps of what's happening; refer to [extension](/libs/yocto_extension/yocto_extension.cpp) for further details.
 
 ### Spectral Tracking
 
 // to-do
+Also here, like in the precedent algorithm, the spectrum of the scatter is managed in the same way.
+// to-do
 
 ### Unidirectional Spectral MIS
 
-// to-do
+The novelty introduced by the unidirectional spectral MIS in respect of the precedent algorithms is that it doesn't deal only with the majorant of the scatter but samples a different channel each times, considerably reducing the computing times. For example, if we assume to have a 3-channel (RGB) non-uniform scatter with an high value on the green channel and lower ones on the other, the spectral MIS performs with a much lower computational time w.r.t. delta tracking and spectral tracking. In fact, here the spectrum is handled using each of the present channels. The speedup of this algorithm borns from the fact that instead of considering the majorant of the spectrum we consider a random channel of it and this leads to have bigger sampled distances when the value of the channel is small. Of course, the bigger sampled distances are, the smaller are the steps inside the volume. This technique is really useful for a faster convergence. However, we notice to have problems with this method and decide to use the mean of the spectrum values, which remains a faster technique than the one used in the precedent algorithms.
+
+We can resume spectral mis these salient steps:
+- Tracking of path contributions and pdfs (f,p).
+- Compute the mean of the scatter and multiply it by the max density to have a weighted majorant.
+- Sample a distance t using the weighted majorant. If t is greater than the maximum distance, i.e. the edge of the volume, exit.
+- Compute sigma_t, sigma_s, sigma_a, sigma_n.
+- Sample an event e using sample_event() and the probabilities of each event normalized with the max density.
+- ```EVENT_ABSORB``` or ```EVENT_SCATTER```: Exit with updated weight and evaluate the emission of the volume. 
+- ```EVENT_NULL```: continue.
+
+Another important term here is the sample_event() function which, in our implementation, is based on this [thread](https://stackoverflow.com/a/26751752). The probabilities we use for this function are computed using the sampled channel of sigma_a, sigma_s and sigma_n, normalized with the max density. Then we add to the path contribution f a different value which depends on the sorted event and the trasmittance T if absorption or scattering occur. Absorption and scattering are treated in the same way in the main loop but, like for the other two algorithms, we compute the emission in the first and sample the incoming direction with the phase function in the second. Another simplification is that the path of pdfs is equal to the one of contributions using the cancellation trick. At the end, if absorption or scattering occur, we return a weight which is made of the path of contributions divided by the mean of p. Refer to [extension](/libs/yocto_extension/yocto_extension.cpp) for further details.
 
 ## Results
 how well it worked, performance numbers and include commented images
