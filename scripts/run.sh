@@ -1,11 +1,18 @@
-#./bin/yscenetrace tests/volume/volume.json -o out/lowres/volume_720_256.jpg -t path -s 256 -r 720
-#./bin/yscenetrace tests/smoke/out.json -o out/lowres/smoke_720_256.jpg -t path -s 256 -r 720
-#./bin/yscenetrace tests/03_volumetric_lights/volume_testscene.json -o out/lowres/volumetric_light_720_256.jpg -t path -s 256 -r 720
-#./bin/yscenetrace tests/03_volumetric_lights/01.json -o out/lowres/01_720_256.jpg -t path -s 256 -r 720
+./bin/yscenetrace tests/volume/volume.json -o out/lowres/volume.jpg -t path -s 256 -r 720
 
-# Delta tracking - Spectral MIS comparison
-#./bin/yscenetrace tests/03_volumetric_lights/02.json -o out/lowres/03_spectral_720_256.jpg -t path -s 256 -r 720 -v spectral
-#./bin/yscenetrace tests/03_volumetric_lights/02.json -o out/lowres/03_delta_720_256.jpg -t path -s 256 -r 720 -v delta
-./bin/yscenetrace tests/04_lightroom/01.json -o out/lowres/04_delta_720_256_01.jpg -t path -s 256 -r 720 -v delta
-./bin/yscenetrace tests/04_lightroom/01.json -o out/lowres/04_spectral_720_256_01.jpg -t path -s 256 -r 720 -v spectral
+#./bin/yscenetrace tests/campfire/campfire.json -o out/lowres/campfire_delta_1280_4096.jpg -t path -s 4096 -r 1280 -v delta
+#./bin/yscenetrace tests/campfire/campfire.json -o out/lowres/campfire_spectraltracking_1280_4096.jpg -t path -s 4096 -r 1280 -v spectraltracking
+#./bin/yscenetrace tests/campfire/campfire.json -o out/lowres/campfire_spectralMIS_1280_4096.jpg -t path -s 4096 -r 1280 -v spectralMIS
+
+#./bin/yscenetrace tests/volcano/volcano.json -o out/lowres/volcano_delta_1280_4096.jpg -t path -s 4096 -r 1280 -v delta
+#./bin/yscenetrace tests/volcano/volcano.json -o out/lowres/volcano_spectraltracking_1280_4096.jpg -t path -s 4096 -r 1280 -v spectraltracking
+#./bin/yscenetrace tests/volcano/volcano.json -o out/lowres/volcano_spectralMIS_1280_4096.jpg -t path -s 4096 -r 1280 -v spectralMIS
+
+#./bin/yscenetrace tests/cloud/cloud.json -o out/lowres/cloud_delta_1280_4096.jpg -t path -s 4096 -r 1280 -v delta
+#./bin/yscenetrace tests/cloud/cloud.json -o out/lowres/cloud_spectraltracking_1280_4096.jpg -t path -s 4096 -r 1280 -v spectraltracking
+#./bin/yscenetrace tests/cloud/cloud.json -o out/lowres/cloud_spectralMIS_1280_4096.jpg -t path -s 4096 -r 1280 -v spectralMIS
+
+#./bin/yscenetrace tests/bunny/bunny.json -o out/lowres/bunny_delta_1280_4096.jpg -t path -s 4096 -r 1280 -v delta
+#./bin/yscenetrace tests/bunny/bunny.json -o out/lowres/bunny_spectraltracking_1280_4096.jpg -t path -s 4096 -r 1280 -v spectraltracking
+#./bin/yscenetrace tests/bunny/bunny.json -o out/lowres/bunny_spectralMIS_1280_512.jpg -t path -s 4096 -r 1280 -v spectralMIS
 
