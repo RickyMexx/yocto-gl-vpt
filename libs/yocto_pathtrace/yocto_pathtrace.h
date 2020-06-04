@@ -175,7 +175,8 @@ const auto default_seed = 961748941ull;
 // Volumetric path tracing algorithms // vpt
 
 #define DELTA  "delta"
-#define SPMIS  "spectral"
+#define SPTRK  "spectraltracking"
+#define SPMIS  "spectralMIS"
 
 // Options for trace functions
 struct trace_params {

@@ -150,15 +150,16 @@ namespace yocto::extension {
       // Compute transmittance simultaneously
       tr *= 1.0f - density;
       if (density * (1.0 - max(vsdf.scatter)) > rand1f(rng)) {
-	vsdf.density = vec3f(density * max_density);
-	return {path_length, vec3f(1)};
+				vsdf.event = EVENT_ABSORB;
+				vsdf.density = vec3f(density * max_density);
+				return {path_length, vec3f(1)};
       }
       if (density > rand1f(rng)) {
-	// Scatter
-	vsdf.event = EVENT_SCATTER;
-	// Populate vsdf with medium interaction information and return
-	vsdf.density = vec3f(density * max_density);
-	return {path_length, tr * vsdf.scatter};
+				// Scatter
+				vsdf.event = EVENT_SCATTER;
+				// Populate vsdf with medium interaction information and return
+				vsdf.density = vec3f(density * max_density);
+				return {path_length, tr * vsdf.scatter};
       } 
     }
     return {max_distance, vec3f{1}};
@@ -234,18 +235,14 @@ namespace yocto::extension {
       auto sigma_n     = vec3f(max_density) - sigma_t;
       tr *= vec3f(1) - sigma_t * imax_density;
 
-      /*
-	0|------T-----------|-------N--------| 1
-	0|----S---|----A----|1
-      */
       
       // Sample event
       auto mu_e        = zero3f;
       // auto e = sample_event(sigma_a[cc] * imax_density,
       // 			    sigma_s[cc] * imax_density,
       // 			    sigma_n[cc] * imax_density, rand1f(rng));
-      auto e = sample_event(0.0f,
-       			    sigma_t[cc] * imax_density,
+      auto e = sample_event(sigma_a[cc] * imax_density,
+       			    sigma_s[cc] * imax_density, // sigma_t[cc]
        			    sigma_n[cc] * imax_density, rand1f(rng));
       switch(e) {
       case EVENT_NULL:
@@ -271,7 +268,7 @@ namespace yocto::extension {
 	break;
       }
     }    
-    return {path_length, f};
+    return {path_length, f / mean(p)};
   }
 
   std::pair<float, vec3f> eval_spectral_tracking(vsdf& vsdf, float max_distance,
@@ -298,11 +295,11 @@ namespace yocto::extension {
       
       tr *= 1.0 - sigma_t;
       if (max((1.0 - vsdf.scatter) * sigma_t) > rand1f(rng)) {
-	contrib    = (sigma_t * (1.0 - vsdf.scatter)) * max_density;
-	contrib   /= max(contrib);
-	vsdf.event = EVENT_ABSORB;
-	vsdf.density = sigma_t * max_density;
-	return {path_length, tr * contrib};
+				contrib    = (sigma_t * (1.0 - vsdf.scatter)) * max_density;
+				contrib   /= max(contrib);
+				vsdf.event = EVENT_ABSORB;
+				vsdf.density = sigma_t * max_density;
+				return {path_length, tr * contrib};
       }
       if (max(sigma_t) > rand1f(rng)) {
 	// SCATTER
