@@ -87,7 +87,8 @@ in which T is the trasmittance computed simultaneously and s is the scatter. Thi
 
 ### Spectral Tracking
 
-Another implemented approach follows the Spectral Tracking algorithm proposed by [Kutz et al](https://s3-us-west-1.amazonaws.com/disneyresearch/wp-content/uploads/20170823124227/Spectral-and-Decomposition-Tracking-for-Rendering-Heterogeneous-Volumes-Paper1.pdf). Each interaction with the volume is now resolved across all the defined spectrum (in our case the 3-channels RGB spectrum). // TODO
+Another implemented approach follows the Spectral Tracking algorithm proposed by [Kutz et al](https://s3-us-west-1.amazonaws.com/disneyresearch/wp-content/uploads/20170823124227/Spectral-and-Decomposition-Tracking-for-Rendering-Heterogeneous-Volumes-Paper1.pdf). Each interaction with the volume is now resolved across all the defined spectrum (in our case the 3-channels RGB spectrum).
+We decided to implement Spectral Tracking in order to compare differences between Delta tracking, and the next algorithm that will be proposed, namely Spectral MIS.
 
 ### Unidirectional Spectral MIS
 
