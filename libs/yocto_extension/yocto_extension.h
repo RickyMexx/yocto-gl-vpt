@@ -87,10 +87,11 @@ namespace yocto::extension {
     float anisotropy = 0;
     // heterogeneous volume properties
     bool  htvolume   = false;
-    vec3f scale = {1.0, 1.0, 1.0};
     // new heterogeneous volume properties
     // object contains density, emission, frame, scale, offset etc
     const trace::object* object = nullptr;
+    // Collision event (needed for spectral, maybe ?)
+    int event        = 0;
   };
 
 #define EVENT_NULL     0
@@ -128,6 +129,18 @@ namespace yocto::extension {
   // TODO: Add comment
   std::pair<float, vec3f> spectral_MIS(vsdf& vsdf, float max_distance, float rni,
 				       float rn, float eps, const ray3f& ray, int& event);
+
+  std::pair<float, vec3f> eval_delta_tracking(vsdf& vsdf, float max_distance, rng_state& rng,
+					      const ray3f& ray);
+  std::pair<float, vec3f> eval_pixar_delta(vsdf& vsdf, float max_distance, rng_state& rng,
+					   const ray3f& _ray);
+  std::pair<float, vec3f> eval_unidirectional_spectral_mis(vsdf& vsdf, float max_distance,
+							   rng_state& rng, const ray3f& ray);
+  std::pair<float, vec3f> eval_spectral_tracking(vsdf& vsdf, float max_distance,
+						 rng_state& rng, const ray3f& ray);
+
+  vec3f eval_vpt_transmittance(const vsdf& vsdf, float max_distance, rng_state& rng,
+			       const ray3f& ray);
   
   // takes as input a volume ptr and fills it with a perlin volumetric texture // vpt
   void gen_volumetric(img::volume<float>* vol, const vec3i& size);
