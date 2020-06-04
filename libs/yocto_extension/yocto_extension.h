@@ -106,7 +106,7 @@ namespace yocto::extension {
 namespace yocto::extension {
 
   // check if we have a vpt volume // vpt 
-  bool has_vptvolume(const object* object);
+  bool has_vpt_volume(const object* object);
   
   // check if the indices are inside the bounds // vpt
   bool check_bounds(vec3i vox_idx, vec3i bounds);
