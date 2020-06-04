@@ -124,18 +124,20 @@ namespace yocto::extension {
   float eval_vpt_emission(const vsdf& vsdf, const vec3f& uvw);
     
   // Delta tracking implementation based on PBRT Book (chap. Light Transport II: Volume Rendering)
-  std::pair<float, vec3f> delta_tracking(vsdf& vsdf, float max_distance, float rn,
-						float eps, const ray3f& ray);
-  // TODO: Add comment
-  std::pair<float, vec3f> spectral_MIS(vsdf& vsdf, float max_distance, float rni,
-				       float rn, float eps, const ray3f& ray, int& event);
+  //std::pair<float, vec3f> delta_tracking(vsdf& vsdf, float max_distance, float rn,
+	//					float eps, const ray3f& ray);
+  // Spectral MIS 
+  //std::pair<float, vec3f> spectral_MIS(vsdf& vsdf, float max_distance, float rni,
+	//			       float rn, float eps, const ray3f& ray, int& event);
+  //std::pair<float, vec3f> eval_pixar_delta(vsdf& vsdf, float max_distance, rng_state& rng,
+	//				   const ray3f& _ray);
 
   std::pair<float, vec3f> eval_delta_tracking(vsdf& vsdf, float max_distance, rng_state& rng,
 					      const ray3f& ray);
-  std::pair<float, vec3f> eval_pixar_delta(vsdf& vsdf, float max_distance, rng_state& rng,
-					   const ray3f& _ray);
+
   std::pair<float, vec3f> eval_unidirectional_spectral_mis(vsdf& vsdf, float max_distance,
 							   rng_state& rng, const ray3f& ray);
+                 
   std::pair<float, vec3f> eval_spectral_tracking(vsdf& vsdf, float max_distance,
 						 rng_state& rng, const ray3f& ray);
 

@@ -238,34 +238,31 @@ namespace yocto::extension {
       
       // Sample event
       auto mu_e        = zero3f;
-      // auto e = sample_event(sigma_a[cc] * imax_density,
-      // 			    sigma_s[cc] * imax_density,
-      // 			    sigma_n[cc] * imax_density, rand1f(rng));
       auto e = sample_event(sigma_a[cc] * imax_density,
        			    sigma_s[cc] * imax_density, // sigma_t[cc]
        			    sigma_n[cc] * imax_density, rand1f(rng));
       switch(e) {
       case EVENT_NULL:
-	mu_e = sigma_n;
-	break;
+        mu_e = sigma_n;
+        break;
       case EVENT_SCATTER:
-	mu_e = vsdf.scatter;
-	break;
+        mu_e = vsdf.scatter;
+        break;
       case EVENT_ABSORB:
-	mu_e = (1.0 - vsdf.scatter);
-	break;
+        mu_e = (1.0 - vsdf.scatter);
+        break;
       }
       if (e == EVENT_NULL)
-	continue;
+	      continue;
       
       f  *= mu_e;
       p  = f;
       if (e == EVENT_ABSORB || e == EVENT_SCATTER) {
-	// Populate vsdf with medium interaction information and return
-	vsdf.event = e;
-	vsdf.density = sigma_t;
-	f *= tr;
-	break;
+        // Populate vsdf with medium interaction information and return
+        vsdf.event = e;
+        vsdf.density = sigma_t;
+        f *= tr;
+        break;
       }
     }    
     return {path_length, f / mean(p)};
@@ -287,7 +284,7 @@ namespace yocto::extension {
     while (true) {
       path_length -= log(1 - rand1f(rng)) / majorant_density;
       if (path_length >= max_distance)
-	break;
+	      break;
       auto current_pos = ray.o + path_length * ray.d;
       auto sigma_t     = vec3f(eval_vpt_density(vsdf, current_pos)) * imax_density;
       auto sigma_n     = max_density * (1.0 - sigma_t);
@@ -302,13 +299,13 @@ namespace yocto::extension {
 				return {path_length, tr * contrib};
       }
       if (max(sigma_t) > rand1f(rng)) {
-	// SCATTER
-	vsdf.event = EVENT_SCATTER;
-	vsdf.density = sigma_t * max_density;
-	contrib    = (sigma_t * vsdf.scatter) * max_density;
-	contrib   /= max(contrib);
-	return {path_length, tr * contrib};
-	//return {path_length, tr * f * sigma_s / (majorant_density * max(sigma_s) / c)};
+        // SCATTER
+        vsdf.event = EVENT_SCATTER;
+        vsdf.density = sigma_t * max_density;
+        contrib    = (sigma_t * vsdf.scatter) * max_density;
+        contrib   /= max(contrib);
+        return {path_length, tr * contrib};
+        //return {path_length, tr * f * sigma_s / (majorant_density * max(sigma_s) / c)};
       }
       contrib      = sigma_n;
       contrib     /= max(sigma_n);
@@ -317,6 +314,10 @@ namespace yocto::extension {
     return {max_distance, f};
   }
 
+  // *******************
+  // Old implementations
+  // *******************
+  /*
   std::pair<float, vec3f> delta_tracking(vsdf& vsdf, float max_distance, float rn,
 						float eps, const ray3f& ray) {
     // Precompute values for Monte Carlo sampling on img::volume<float>
@@ -350,7 +351,6 @@ namespace yocto::extension {
     }
     return {t, weight};  
   }
-  
   
 
   std::pair<float, vec3f> spectral_MIS(vsdf& vsdf, float max_distance, float rni,
@@ -417,7 +417,7 @@ namespace yocto::extension {
     // }
     // return {t, vec3f(1)};
   }
-
+  */
   
 
   void gen_volumetric(img::volume<float>* vol, const vec3i& size) {

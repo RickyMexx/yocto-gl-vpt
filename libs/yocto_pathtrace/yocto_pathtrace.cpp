@@ -90,11 +90,11 @@ using extension::has_vpt_density;
 using extension::has_vpt_emission;
 using extension::eval_vpt_density;
 using extension::eval_vpt_emission;
-using extension::delta_tracking;
+//using extension::delta_tracking;
 using extension::eval_delta_tracking;
 using extension::eval_spectral_tracking;
 using extension::eval_unidirectional_spectral_mis;
-using extension::spectral_MIS;
+//using extension::spectral_MIS;
 using extension::vsdf;
 
 }  // namespace yocto::pathtrace
@@ -1205,64 +1205,68 @@ static vec4f trace_path(const ptr::scene* scene, const ray3f& ray_,
 		if (!volume_stack.empty()) {
 			auto &vsdf = volume_stack.back();
 			// Handle heterogeneous volumes
-			if (params.vpt == DELTA) {
-				// delta tracking
-				auto [t, w] = eval_delta_tracking(vsdf, intersection.distance, rng, ray);
-				weight *= w;
-				position = ray.o + t * ray.d;
-				if (t < intersection.distance) {
-					in_volume = true;
-					incoming = sample_scattering(vsdf, outgoing, rand1f(rng), rand2f(rng));
-					if (vsdf.event == EVENT_ABSORB) {
-						auto er = zero3f;
-						if (has_vpt_emission(vsdf.object))
-							er = math::blackbody_to_rgb(eval_vpt_emission(vsdf, position) * 40e3);
-						radiance += weight * er * vsdf.object->radiance_mult;
-						break;
-					}
-				}
-			} else if (params.vpt == SPTRK) {
-				// Spectral tracking
-				auto [t, w] = eval_spectral_tracking(vsdf, intersection.distance, rng, ray);
-				weight *= w;
-				position = ray.o + t * ray.d;
-				// Handle an interaction with a medium
-				if (t < intersection.distance) {
-					in_volume = true;	    
-					if (vsdf.event == EVENT_SCATTER)
-						incoming = sample_scattering(vsdf, outgoing, rand1f(rng), rand2f(rng));
-					if (vsdf.event == EVENT_ABSORB) {
-						//incoming = sample_lights(scene, position, rand1f(rng), rand1f(rng), rand2f(rng));
-						auto er = zero3f;
-						if (has_vpt_emission(vsdf.object))
-							er = math::blackbody_to_rgb(eval_vpt_emission(vsdf, position) * 40e3);
-						radiance += weight * er * vsdf.object->radiance_mult;
-						break;
-						//weight *= sample_lights_pdf(scene, position, incoming);
-					}
-				}
-			} else if(params.vpt == SPMIS) {
-				auto [t, w] = eval_unidirectional_spectral_mis(vsdf, intersection.distance, rng, ray);
-				weight *= w;
-				position = ray.o + t * ray.d;
-				// Handle an interaction with a medium
-				if (t < intersection.distance) {
-					in_volume = true;	    
-					if (vsdf.event == EVENT_SCATTER)
-						incoming = sample_scattering(vsdf, outgoing, rand1f(rng), rand2f(rng));
-					if (vsdf.event == EVENT_ABSORB) {
-						//incoming = sample_lights(scene, position, rand1f(rng), rand1f(rng), rand2f(rng));
-						auto er = zero3f;
-						if (has_vpt_emission(vsdf.object))
-							er = math::blackbody_to_rgb(eval_vpt_emission(vsdf, position) * 40e3);
-						radiance += weight * er * vsdf.object->radiance_mult;
-						break;
-					}
-				}
-			} else {
-				// handle homogeneous volumes
-			}
-		}
+      if(vsdf.htvolume) {
+        if (params.vpt == DELTA) {
+          // Delta tracking
+          auto [t, w] = eval_delta_tracking(vsdf, intersection.distance, rng, ray);
+          weight *= w;
+          position = ray.o + t * ray.d;
+          if (t < intersection.distance) {
+            in_volume = true;
+            incoming = sample_scattering(vsdf, outgoing, rand1f(rng), rand2f(rng));
+            if (vsdf.event == EVENT_ABSORB) {
+              auto er = zero3f;
+              if (has_vpt_emission(vsdf.object))
+                er = math::blackbody_to_rgb(eval_vpt_emission(vsdf, position) * 40e3);
+              radiance += weight * er * vsdf.object->radiance_mult;
+              break;
+            }
+          }
+        } else if (params.vpt == SPTRK) {
+          // Spectral tracking
+          auto [t, w] = eval_spectral_tracking(vsdf, intersection.distance, rng, ray);
+          weight *= w;
+          position = ray.o + t * ray.d;
+          // Handle an interaction with a medium
+          if (t < intersection.distance) {
+            in_volume = true;	    
+            if (vsdf.event == EVENT_SCATTER)
+              incoming = sample_scattering(vsdf, outgoing, rand1f(rng), rand2f(rng));
+            if (vsdf.event == EVENT_ABSORB) {
+              auto er = zero3f;
+              if (has_vpt_emission(vsdf.object))
+                er = math::blackbody_to_rgb(eval_vpt_emission(vsdf, position) * 40e3);
+              radiance += weight * er * vsdf.object->radiance_mult;
+              break;
+            }
+          }
+        } else if(params.vpt == SPMIS) {
+          // Spectral MIS
+          auto [t, w] = eval_unidirectional_spectral_mis(vsdf, intersection.distance, rng, ray);
+          weight *= w;
+          position = ray.o + t * ray.d;
+          // Handle an interaction with a medium
+          if (t < intersection.distance) {
+            in_volume = true;	    
+            if (vsdf.event == EVENT_SCATTER)
+              incoming = sample_scattering(vsdf, outgoing, rand1f(rng), rand2f(rng));
+            if (vsdf.event == EVENT_ABSORB) {
+              auto er = zero3f;
+              if (has_vpt_emission(vsdf.object))
+                er = math::blackbody_to_rgb(eval_vpt_emission(vsdf, position) * 40e3);
+              radiance += weight * er * vsdf.object->radiance_mult;
+              break;
+            }
+          }
+        }
+      } else {
+        auto  distance = sample_transmittance(vsdf.density, intersection.distance, rand1f(rng), rand1f(rng));
+        weight *= eval_transmittance(vsdf.density, distance) /
+                  sample_transmittance_pdf(vsdf.density, distance, intersection.distance);
+        in_volume             = distance < intersection.distance;
+        intersection.distance = distance;
+      }
+    }
 		
 		if (!in_volume) {
 			// prepare shading point
@@ -1303,15 +1307,38 @@ static vec4f trace_path(const ptr::scene* scene, const ray3f& ray_,
 			// update volume stack
 			if ((has_volume(object) || has_vpt_volume(object)) 
 					&&  dot(normal, outgoing) * dot(normal, incoming) < 0) {
-				bounce -= 1;
-				if (volume_stack.empty()) {
+				
+        if(has_vpt_volume(object)) bounce -= 1; // fix for heterogeneous volumes
+				
+        if (volume_stack.empty()) {
 					auto volpoint = eval_vsdf(object, element, uv);
 					volume_stack.push_back(volpoint);
 				} else {
 					volume_stack.pop_back();
-				} // if(volume_stack.empty())
-			} // if ((has_volume(object) || has_vptvolume(object))...
-		} // if (!in_volume)     
+				}
+			} 
+		} else {
+      // prepare shading point
+      outgoing = -ray.d;
+      position = ray.o + ray.d * intersection.distance;
+      auto& vsdf     = volume_stack.back();
+      // handle opacity
+      hit = true;
+      if(!vsdf.htvolume) {
+        // next direction
+        incoming = zero3f;
+        if (rand1f(rng) < 0.5f) {
+          incoming = sample_scattering(vsdf, outgoing, rand1f(rng), rand2f(rng));
+        } else {
+          incoming = sample_lights(
+              scene, position, rand1f(rng), rand1f(rng), rand2f(rng));
+        }
+        weight *= eval_scattering(vsdf, outgoing, incoming) /
+                  (0.5f * sample_scattering_pdf(vsdf, outgoing, incoming) +
+                      0.5f * sample_lights_pdf(scene, position, incoming));
+
+      }
+    }
 
 		// check weight
 		if (weight == zero3f || !isfinite(weight)) break;
@@ -1320,13 +1347,13 @@ static vec4f trace_path(const ptr::scene* scene, const ray3f& ray_,
 			auto rr_prob = min((float)0.99, max(weight));
 			if (rand1f(rng) >= rr_prob) break;
 			weight *= 1 / rr_prob;
-		} // if(bounce > 3)
+		} 
 
 		// setup next iteration
 		ray = {position, incoming};
-	} // for(auto bounce...)
+	}
 	return {radiance, hit ? 1.0f : 0.0f};
-}// trace_path
+}
   
 /*
 // Path tracing.
