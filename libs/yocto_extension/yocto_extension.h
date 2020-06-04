@@ -136,6 +136,8 @@ namespace yocto::extension {
 					   const ray3f& _ray);
   std::pair<float, vec3f> eval_unidirectional_spectral_mis(vsdf& vsdf, float max_distance,
 							   rng_state& rng, const ray3f& ray);
+  std::pair<float, vec3f> eval_spectral_tracking(vsdf& vsdf, float max_distance,
+						 rng_state& rng, const ray3f& ray);
 
   vec3f eval_vpt_transmittance(const vsdf& vsdf, float max_distance, rng_state& rng,
 			       const ray3f& ray);

@@ -139,6 +139,7 @@ namespace yocto::extension {
     // Majorant of sigma_t
     auto majorant_density = max_density;
     auto path_length = 0.0f;
+    auto tr          = 1.0f;
     
     while (true) {
       path_length -= log(1 - rand1f(rng)) / majorant_density;
@@ -146,49 +147,23 @@ namespace yocto::extension {
 	break;
       auto current_pos = ray.o + path_length * ray.d;
       auto density = eval_vpt_density(vsdf, current_pos) * imax_density;
+      // Compute transmittance simultaneously
+      tr *= 1.0f - density;
+      if (density * (1.0 - max(vsdf.scatter)) > rand1f(rng)) {
+	vsdf.density = vec3f(density * max_density);
+	return {path_length, vec3f(1)};
+      }
       if (density > rand1f(rng)) {
+	// Scatter
+	vsdf.event = EVENT_SCATTER;
 	// Populate vsdf with medium interaction information and return
-	vsdf.density = vec3f(density);
-	return {path_length, (1.0 - vsdf.scatter)};
+	vsdf.density = vec3f(density * max_density);
+	return {path_length, tr * vsdf.scatter};
       } 
     }
     return {max_distance, vec3f{1}};
   }
-  std::pair<float, vec3f> eval_pixar_delta(vsdf& vsdf, float max_distance, rng_state& rng,
-					   const ray3f& _ray) {
-    // Precompute values for Monte Carlo sampling on img::volume<float>
-    auto object       = vsdf.object;
-    auto density_vol  = object->density_vol;
-    auto emission_vol = object->emission_vol;
-    auto max_density  = density_vol->max_voxel * object->density_mult;
-    auto imax_density = 1.0f / max_density;
-    // Majorant of sigma_t
-    auto majorant_density = max_density;
-    auto path_length = 0.0f;
-    auto ray = _ray;
-    
-    while (true) {
-      auto d = ray.d;
-      auto t = log(1 - rand1f(rng)) / majorant_density;;
-      path_length -= t;
-      if (path_length >= max_distance)
-	break;
-      auto current_pos = ray.o + t * ray.d;
-      auto sigma_t     = vec3f(eval_vpt_density(vsdf, current_pos));
-      auto sigma_s     = vsdf.scatter * sigma_t;
-      auto sigma_a     = sigma_t * (1.0 - vsdf.scatter);
-      auto sigma_n     = vec3f(density_vol->max_voxel) - sigma_t;
-      if (rand1f(rng) < mean(sigma_a) / majorant_density) {
-	//printf("%f %f %f\n", sigma_a.x, sigma_a.y, sigma_a.z);
-	return {path_length, sigma_a};
-      } else if (rand1f(rng) - mean(sigma_n) / majorant_density) {
-	d = sample_phasefunction(vsdf.anisotropy, -ray.d, rand2f(rng));
-      }
-      ray = {current_pos, d};
-    }
-    return {max_distance, vec3f{1}};
-  }
-
+  
   vec3f eval_vpt_transmittance(const vsdf& vsdf, float max_distance, rng_state& rng,
 			       const ray3f& ray) {
     // Precompute values for Monte Carlo sampling on img::volume<float>
@@ -237,47 +212,112 @@ namespace yocto::extension {
     auto emission_vol     = object->emission_vol;
     auto max_density      = density_vol->max_voxel * object->density_mult;
     auto imax_density     = 1.0f / max_density;
-    auto majorant_density = max_density;
     auto path_length      = 0.0f;
     auto f                = vec3f(1);
     auto p                = vec3f(1);
     auto cc               = clamp((int)(rand1f(rng) * 3), 0, 2);
-
+    auto current_pos      = ray.o;
+    //auto majorant_density = (vsdf.scatter * max_density)[cc];
+    auto majorant_density = mean(vsdf.scatter * max_density);
+    //auto majorant_density = max_density;
+    auto tr               = vec3f(1);
+    
     while (true) {
-      path_length     -= log(1 - rand1f(rng)) / majorant_density;
+      path_length     -= majorant_density == 0.0f ? -flt_max :
+	log(1 - rand1f(rng)) / majorant_density;
       if (path_length >= max_distance)
 	break;
-      auto current_pos = ray.o + path_length * ray.d;
+      current_pos = ray.o + path_length * ray.d;
       auto sigma_t     = vec3f(eval_vpt_density(vsdf, current_pos));
-      auto sigma_s     = vsdf.scatter * sigma_t;
-      auto sigma_a     = sigma_t * (1.0 - vsdf.scatter[cc]);
-      auto sigma_n     = vec3f(density_vol->max_voxel) - sigma_t;
+      auto sigma_s     = sigma_t * vsdf.scatter;
+      auto sigma_a     = sigma_t * (vec3f(1) - vsdf.scatter);
+      auto sigma_n     = vec3f(max_density) - sigma_t;
+      tr *= vec3f(1) - sigma_t * imax_density;
+
+      /*
+	0|------T-----------|-------N--------| 1
+	0|----S---|----A----|1
+      */
+      
       // Sample event
       auto mu_e        = zero3f;
-      auto e = sample_event(sigma_a[cc] * imax_density,
-			    sigma_s[cc] * imax_density,
-			    sigma_n[cc] * imax_density, rand1f(rng));
+      // auto e = sample_event(sigma_a[cc] * imax_density,
+      // 			    sigma_s[cc] * imax_density,
+      // 			    sigma_n[cc] * imax_density, rand1f(rng));
+      auto e = sample_event(0.0f,
+       			    sigma_t[cc] * imax_density,
+       			    sigma_n[cc] * imax_density, rand1f(rng));
       switch(e) {
       case EVENT_NULL:
 	mu_e = sigma_n;
 	break;
       case EVENT_SCATTER:
-	mu_e = sigma_s;
+	mu_e = vsdf.scatter;
 	break;
       case EVENT_ABSORB:
-	mu_e = sigma_a;
+	mu_e = (1.0 - vsdf.scatter);
 	break;
       }
-      f = f * eval_vpt_transmittance(vsdf, path_length, rng, ray) * mu_e;
-      p = f;
+      if (e == EVENT_NULL)
+	continue;
+      
+      f  *= mu_e;
+      p  = f;
       if (e == EVENT_ABSORB || e == EVENT_SCATTER) {
 	// Populate vsdf with medium interaction information and return
 	vsdf.event = e;
-	vsdf.density = vec3f(sigma_t);
+	vsdf.density = sigma_t;
+	f *= tr;
 	break;
       }
     }    
-    return {path_length, f / mean(p)};
+    return {path_length, f};
+  }
+
+  std::pair<float, vec3f> eval_spectral_tracking(vsdf& vsdf, float max_distance,
+						 rng_state& rng, const ray3f& ray) {
+    auto object           = vsdf.object;
+    auto density_vol      = object->density_vol;
+    auto emission_vol     = object->emission_vol;
+    auto max_density      = density_vol->max_voxel * object->density_mult;
+    auto imax_density     = 1.0f / max_density;
+    auto path_length      = 0.0f;
+    // Majorant of sigma_t
+    auto majorant_density = max_density;
+    auto tr               = vec3f(1);
+    auto f                = vec3f(1);
+
+    while (true) {
+      path_length -= log(1 - rand1f(rng)) / majorant_density;
+      if (path_length >= max_distance)
+	break;
+      auto current_pos = ray.o + path_length * ray.d;
+      auto sigma_t     = vec3f(eval_vpt_density(vsdf, current_pos)) * imax_density;
+      auto sigma_n     = max_density * (1.0 - sigma_t);
+      auto contrib     = zero3f;
+      
+      tr *= 1.0 - sigma_t;
+      if (max((1.0 - vsdf.scatter) * sigma_t) > rand1f(rng)) {
+	contrib    = (sigma_t * (1.0 - vsdf.scatter)) * max_density;
+	contrib   /= max(contrib);
+	vsdf.event = EVENT_ABSORB;
+	vsdf.density = sigma_t * max_density;
+	return {path_length, tr * contrib};
+      }
+      if (max(sigma_t) > rand1f(rng)) {
+	// SCATTER
+	vsdf.event = EVENT_SCATTER;
+	vsdf.density = sigma_t * max_density;
+	contrib    = (sigma_t * vsdf.scatter) * max_density;
+	contrib   /= max(contrib);
+	return {path_length, tr * contrib};
+	//return {path_length, tr * f * sigma_s / (majorant_density * max(sigma_s) / c)};
+      }
+      contrib      = sigma_n;
+      contrib     /= max(sigma_n);
+      f *= contrib;
+    }
+    return {max_distance, f};
   }
 
   std::pair<float, vec3f> delta_tracking(vsdf& vsdf, float max_distance, float rn,
