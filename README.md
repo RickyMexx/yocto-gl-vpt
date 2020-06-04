@@ -5,7 +5,7 @@ This project is designed and implemented as an extension of [Yocto/GL](https://x
 ![test](/out/lowres/campfire_spectral_1280_4096.jpg)
 
 ## Introduction
-As stated in the project title, we deal with volumetric path tracing ([VPT](https://en.wikipedia.org/wiki/Volumetric_path_tracing)) for heterogenous materials since it's not currently supported by the actual release of Yocto/GL. In particular, we focus our implementation on heterogeneous materials, adding full support for volumetric textures and [OpenVDB](https://www.openvdb.org/download/) models. Next, we proceed with the implementation of delta tracking algorithm presented in [PBRT](http://www.pbr-book.org/3ed-2018/Light_Transport_II_Volume_Rendering/Sampling_Volume_Scattering.html) book and a modern volumetric method proposed by [Miller et al](https://cs.dartmouth.edu/~wjarosz/publications/miller19null.html).
+As stated in the project title, we deal with volumetric path tracing ([VPT](https://en.wikipedia.org/wiki/Volumetric_path_tracing)) for heterogenous materials since it's not currently supported by the actual release of Yocto/GL. In particular, we focus our implementation on heterogeneous materials, adding full support for volumetric textures and [OpenVDB](https://www.openvdb.org/download/) models. Next, we proceed with the implementation of delta tracking algorithm presented in [PBRT](http://www.pbr-book.org/3ed-2018/Light_Transport_II_Volume_Rendering/Sampling_Volume_Scattering.html) book and two modern volumetric methods: spectral tracking from [Kutz et al](https://s3-us-west-1.amazonaws.com/disneyresearch/wp-content/uploads/20170823124227/Spectral-and-Decomposition-Tracking-for-Rendering-Heterogeneous-Volumes-Paper1.pdf) and unidirectional spectral MIS proposed by [Miller et al](https://cs.dartmouth.edu/~wjarosz/publications/miller19null.html).
 
 ## Our work
 ### OpenVDB support
@@ -38,7 +38,7 @@ JSON objects add-on | Type | Description
 ```density_mult``` | float | Handles the level of density of the volume
 ```radiance_mult``` | float | Handles the level of radiance the volume emits
 
-All those features are then handled by ```yocto::sceneio``` and ```yocto::pathtrace``` that we change accurately. After adding also volumes support to the rendering apps ```yscenetrace``` and ```ysceneitraces```, we introduce a new option for the execution permitting us to choose one of the volumetric path tracing algorithms: ```--vpt,-v {delta, spectral}```.
+All those features are then handled by ```yocto::sceneio``` and ```yocto::pathtrace``` that we change accurately. After adding also volumes support to the rendering apps ```yscenetrace``` and ```ysceneitraces```, we introduce a new option for the execution permitting us to choose one of the volumetric path tracing algorithms: ```--vpt,-v {delta, spectraltracking, spectralMIS}```.
 
 Concerning the algorithms, ```yocto::extension``` contains all the needed functions. Here is a listing:
 
@@ -50,10 +50,11 @@ Function  | Description
 ```has_vpt_emission()``` | Checks if a volume has temperature voxels
 ```eval_vpt_density()``` | Evaluates the density value at the given real coordinates
 ```eval_vpt_emission()``` | Evaluates the temperature value at the given real coordinates
-```delta_tracking()``` | Implementation of delta tracking algorithm
-```spectral_MIS()``` | Implementation of unidirectional spectral MIS algorithm
+```eval_delta_tracking()``` | Implementation of delta tracking algorithm
+```eval_spectral_tracking()``` | Implementation of spectral tracking algorithm
+```eval_unidirectional_spectral_mis()``` | Implementation of unidirectional spectral MIS algorithm
 
-We use those methods to compute all the necessary parameters like the density in a ray intersection point or the path tracing in volumes with different techniques. In particular, volumes are implemented using ```yocto::image::volume``` structure and other functions from the same namespace like ```yocto::image::eval_volume()``` which evaluates a voxel value at given coordinates.
+We use those methods to compute all the necessary parameters like the density in a ray intersection point or the path tracing in volumes using different techniques. In particular, volumes are implemented using ```yocto::image::volume``` structure and other functions from the same namespace like ```yocto::image::eval_volume()``` which evaluates a voxel value at given coordinates. Further details on the methods implemented [here](/libs/yocto_extension/yocto_extension.h).
 
 The structure for the ```vsdf``` is changed as following:
 ```
@@ -63,16 +64,19 @@ The structure for the ```vsdf``` is changed as following:
     float anisotropy = 0;
     bool  htvolume   = false;
     vec3f scale = {1.0, 1.0, 1.0};
+    int event = 0;
     const trace::object* object = nullptr;
   };
 ```
-now containing heterogeneous volume flag for the path trace, a scale for voxels evaluation, and the object to which it refers to retrieve other information.
+It now contains heterogeneous volume flag for the path trace, a scale for voxels evaluation, the type of event happening and the object to which it refers to retrieve other information. The events are divided in ```{EVENT_NULL, EVENT_SCATTER, EVENT_ABSORB}``` and permits us to track the current situation of the rays path. The first one stands for the case when a null collision happened and means that a fictitious particle has been hit. We remind that in null-scattering algorithms we can see a heterogeneous volume as a mixture of real and fictitious particles and proceed on a path direction if these latter have been hit. The second event refers to the scattering case when a real particle has been hit and we have to scatter the ray. Finally, *EVENT_ABSORB* is the case when there is an absorption of the ray which leads to its extinction.
 
-The structure of the path tracer in ```yocto::pathtrace``` has undergone some changes to deal with the two different volumetric algorithms. A parameter ```std::string vpt``` is added to the ```trace_params``` structure in order to know the type of tracing. This value is automatically linked with the rendering app.
+The structure of the path tracer in ```yocto::pathtrace``` has undergone some changes to deal with the three different volumetric algorithms. A parameter ```std::string vpt``` is added to the ```trace_params``` structure in order to know the type of tracing. This value is automatically linked with the rendering app. The flow of the trace is a little different from Yocto's one because of a different approach used. In fact, we compute the weights and the distances of the three volumetric algorithms inside the functions themself instead of taking a step-by-step approach in the main ```pathtrace```. The weights are then multiplied by the main weight of the current trace. This new approach, which "forecasts" the total interaction in a single function step (that is O(n) with n the number of sampled distances) and which is also recommended by our references, shows a nice speedup on the computation of the paths. We also decide to compute the transmittance along the path in a simultaneous way instead of performing another cycle which would lead to O(n<sup>2</sup>). This further change scores a remarkable speedup.
 
-// to-do
+### Delta Tracking
 
-### Delta tracking
+The first algorithm, and the classic one if we want to say, we focused on is delta tracking.
+
+### Spectral Tracking
 
 // to-do
 
@@ -91,7 +95,8 @@ how well it worked, performance numbers and include commented images
 
 ## References
 - [Yocto/GL](https://xelatihy.github.io/yocto-gl/)
-- [A null-scattering path integral formulation of light transport](https://www.pbrt.org/), Miller, Bailey and Georgiev, Iliyan and Jarosz, Wojciech
+- [Spectral and Decomposition Tracking for Rendering HeterogeneousVolumes](https://s3-us-west-1.amazonaws.com/disneyresearch/wp-content/uploads/20170823124227/Spectral-and-Decomposition-Tracking-for-Rendering-Heterogeneous-Volumes-Paper1.pdf), Kutz, Peter & Habel, Ralf & Li, Yining & Novák, Jan.
+- [A null-scattering path integral formulation of light transport](https://cs.dartmouth.edu/~wjarosz/publications/miller19null.html), Miller, Bailey and Georgiev, Iliyan and Jarosz, Wojciech
 - [Physically Based Rendering](https://www.pbrt.org/): from Theory to Implementation
 - [Production Volume Rendering](https://graphics.pixar.com/library/ProductionVolumeRendering/paper.pdf), Pixar Animation Studios
 - [OpenVDB](https://www.openvdb.org/)
