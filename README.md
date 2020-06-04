@@ -45,6 +45,7 @@ Concerning the algorithms, ```yocto::extension``` contains all the needed functi
 Function  | Description
 :---: | -------------
 ```check_bounds()``` | Checks if XYZ indices are inside the bounds
+```gen_volumetric()``` | Fills a volume with a volumetric texture using Perlin noise
 ```has_vpt_volume()``` | Checks if an object is a heterogenous volume
 ```has_vpt_density()``` | Checks if a volume has density voxels
 ```has_vpt_emission()``` | Checks if a volume has temperature voxels
@@ -68,13 +69,13 @@ The structure for the ```vsdf``` is changed as following:
     const trace::object* object = nullptr;
   };
 ```
-It now contains heterogeneous volume flag for the path trace, a scale for voxels evaluation, the type of event happening and the object to which it refers to retrieve other information. The events are divided in ```{EVENT_NULL, EVENT_SCATTER, EVENT_ABSORB}``` and permits us to track the current situation of the rays path. The first one stands for the case when a null collision happened and means that a fictitious particle has been hit. We remind that in null-scattering algorithms we can see a heterogeneous volume as a mixture of real and fictitious particles and proceed on a path direction if these latter have been hit. The second event refers to the scattering case when a real particle has been hit and we have to scatter the ray. Finally, *EVENT_ABSORB* is the case when there is an absorption of the ray which leads to its extinction.
+It now contains heterogeneous volume flag for the path trace, a scale for voxels evaluation, the type of event happening and the object to which it refers to retrieve other information. The events are divided in ```{EVENT_NULL, EVENT_SCATTER, EVENT_ABSORB}``` and permits us to track the current situation of the rays path. The first one stands for the case when a null collision happened and means that a fictitious particle has been hit. We remind that in null-scattering algorithms we can see a heterogeneous volume as a mixture of real and fictitious particles and proceed on a path direction if these latter have been hit. The second event refers to the scattering case when a real particle has been hit and we have to scatter the ray. Finally, ```EVENT_ABSORB``` is the case when there is an absorption of the ray which leads to its extinction.
 
-The structure of the path tracer in ```yocto::pathtrace``` has undergone some changes to deal with the three different volumetric algorithms. A parameter ```std::string vpt``` is added to the ```trace_params``` structure in order to know the type of tracing. This value is automatically linked with the rendering app. The flow of the trace is a little different from Yocto's one because of a different approach used. In fact, we compute the weights and the distances of the three volumetric algorithms inside the functions themself instead of taking a step-by-step approach in the main ```pathtrace```. The weights are then multiplied by the main weight of the current trace. This new approach, which "forecasts" the total interaction in a single function step (that is O(n) with n the number of sampled distances) and which is also recommended by our references, shows a nice speedup on the computation of the paths. We also decide to compute the transmittance along the path in a simultaneous way instead of performing another cycle which would lead to O(n<sup>2</sup>). This further change scores a remarkable speedup.
+The structure of the path tracer in ```yocto::pathtrace``` has undergone some changes to deal with the three different volumetric algorithms. A parameter ```std::string vpt``` is added to the ```trace_params``` structure in order to know the type of tracing. This value is automatically linked with the rendering app. The flow of the trace is a little different from Yocto's one because of a different approach used. In fact, we compute the weights and the distances of the three volumetric algorithms inside the functions themself instead of taking a step-by-step approach in the main ```pathtrace```. The weights are then multiplied by the main weight of the current trace. This new approach, which "forecasts" the total interaction in a single function step (that is O(n) with n the number of sampled distances) and which is also recommended by our references, shows a nice speedup on the computation of the paths. We also decide to compute the transmittance along the path in a simultaneous way instead of performing another cycle which would lead to O(n<sup>2</sup>). This further change scores a remarkable speedup of about 2x.
 
 ### Delta Tracking
 
-The first algorithm, and the classic one if we want to say, we focused on is delta tracking.
+The first algorithm we focus on, and the classic one if we want to say, is delta tracking.
 
 ### Spectral Tracking
 
