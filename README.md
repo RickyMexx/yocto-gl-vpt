@@ -87,9 +87,7 @@ in which T is the trasmittance computed simultaneously and s is the scatter. Thi
 
 ### Spectral Tracking
 
-// to-do
-Also here, like in the precedent algorithm, the spectrum of the scatter is managed in the same way.
-// to-do
+Another implemented approach follows the Spectral Tracking algorithm proposed by [Kutz et al](https://s3-us-west-1.amazonaws.com/disneyresearch/wp-content/uploads/20170823124227/Spectral-and-Decomposition-Tracking-for-Rendering-Heterogeneous-Volumes-Paper1.pdf). Each interaction with the volume is now resolved across all the defined spectrum (in our case the 3-channels RGB spectrum). // TODO
 
 ### Unidirectional Spectral MIS
 
@@ -107,9 +105,10 @@ We can resume spectral mis these salient steps:
 Another important term here is the sample_event() function which, in our implementation, is based on this [thread](https://stackoverflow.com/a/26751752). The probabilities we use for this function are computed using the sampled channel of sigma_a, sigma_s and sigma_n, normalized with the max density. Then we add to the path contribution f a different value which depends on the sorted event and the trasmittance T if absorption or scattering occur. Absorption and scattering are treated in the same way in the main loop but, like for the other two algorithms, we compute the emission in the first and sample the incoming direction with the phase function in the second. Another simplification is that the path of pdfs is equal to the one of contributions using the cancellation trick. At the end, if absorption or scattering occur, we return a weight which is made of the path of contributions divided by the mean of p. Refer to [extension](/libs/yocto_extension/yocto_extension.cpp) for further details.
 
 ## Results
-how well it worked, performance numbers and include commented images
-
-// to-do
+In order to compare the proposed algorithms, we propose three scenarios on which heterogeneous volumes are evaluated:
+- Homogeneous Albedo: bunny cloud exposed to 4 large light panels on left/right, up/down sides. Each panel emits a different light. The cloud material has an uniform albedo vector, hence it uniformly scatters all the colors.
+- Heterogeneous Albedo: Same setup of H.A. scene, but only the upper panel is lit, and it emits white light. The cloud material has an heterogeneous albedo; green channel is fully scattered while RB spectrum is fully absorbed.
+- Scene 3: Simple scene with smoke2 and bunny_cloud densities from OpenVDB.
 
 ## Credits
 - [Riccardo Caprari](https://github.com/RickyMexx)
